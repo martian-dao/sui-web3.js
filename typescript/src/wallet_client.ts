@@ -1,7 +1,7 @@
 import * as bip39 from "@scure/bip39";
 import * as english from "@scure/bip39/wordlists/english";
 import { Ed25519Keypair } from "./cryptography/ed25519-keypair";
-import { getCreatedObjects, GetObjectDataResponse, ObjectOwner, SuiAddress} from "./types";
+import { GetObjectDataResponse, ObjectOwner, SuiAddress} from "./types";
 import { JsonRpcProvider } from "./providers/json-rpc-provider";
 import { Coin } from "./types/framework";
 import { RpcTxnDataSerializer } from "./signers/txn-data-serializers/rpc-txn-data-serializer";
@@ -10,10 +10,12 @@ import { RawSigner } from "./signers/raw-signer";
 import { ExampleNFT } from "./nft_client";
 // import { Network } from "./utils/api-endpoints";
 import { MergeCoinTransaction, TransferSuiTransaction } from "./signers/txn-data-serializers/txn-data-serializer";
+import { Network } from "./utils/api-endpoints";
 
 const COIN_TYPE = 784;
 const MAX_ACCOUNTS = 5;
 const DEV_NET_URL = 'https://fullnode.devnet.sui.io/';
+const FAUCET_URL = 'https://faucet.devnet.sui.io/gas';
 const DEFAULT_GAS_BUDGET_FOR_MERGE = 1000;
 const DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER = 1000;
 // const DEFAULT_GAS_BUDGET_FOR_SPLIT = 1000;
@@ -34,7 +36,7 @@ export class WalletClient {
     serializer: RpcTxnDataSerializer;
     
     constructor() {
-        this.provider = new JsonRpcProvider(DEV_NET_URL, );
+        this.provider = new JsonRpcProvider(DEV_NET_URL, {faucetURL: FAUCET_URL});
         this.serializer = new RpcTxnDataSerializer(DEV_NET_URL);
     }
 
@@ -163,6 +165,7 @@ export class WalletClient {
     }
 
     async airdrop(address: string) {
+        console.log(Network.DEVNET);
         return await this.provider.requestSuiFromFaucet(address);
     }
 
@@ -191,10 +194,7 @@ export class WalletClient {
                 coinToMerge: coinId,
                 gasBudget: DEFAULT_GAS_BUDGET_FOR_MERGE,
             };
-            const response = await signer.mergeCoinWithRequestType(mergeTransact);
-            // const response = await this.serializer.newMergeCoin(address, mergeTransact);
-            console.log((getCreatedObjects(response)![0]).reference);
-            primaryId = await getObjectId((getCreatedObjects(response)![0]).reference);
+            await signer.mergeCoinWithRequestType(mergeTransact);
         }
         return primaryId;
     }

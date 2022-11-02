@@ -171,6 +171,8 @@ export class JsonRpcProvider extends Provider {
     recipient: SuiAddress,
     httpHeaders?: HttpHeaders
   ): Promise<FaucetResponse> {
+    console.log("ishan");
+    console.log(this.endpoints.faucet);
     if (!this.endpoints.faucet) {
       throw new Error('Faucet URL is not specified');
     }

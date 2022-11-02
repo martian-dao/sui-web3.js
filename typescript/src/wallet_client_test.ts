@@ -21,13 +21,12 @@ const response = apis.getBalance(address);
 response.then((balance: any) => console.log(Number(balance)));
 
 
-// console.log(keypair.getPublicKey());
-const txResponse = apis.transferSuiMnemonic(100000, samplePhrase, "91fb5e1d624d92540001fda8db6a75eeb1713b36");
+console.log(keypair.getPublicKey());
+const txResponse = apis.transferSuiMnemonic(10000000, samplePhrase, "91fb5e1d624d92540001fda8db6a75eeb1713b36");
 txResponse.then(tx => console.log(tx));
 
-// const mintNft = apis.mintNfts(samplePhrase, 'first-nft',
-// 'testing purposes', 'https://ipfs.io/ipfs/bafkreibngqhl3gaa7daob4i2vccziay2jjlp435cf66vhono7nrvww53ty');
-// // 'testing purposes', 'https://ipfs.io/ipfs/QmQqzMTavQgT4f4T5v6PWBp7XNKtoPmC9jvn12WPT3gkSE');
+// const mintNft = apis.mintNfts(samplePhrase, 'monkey-nft',
+// 'testing purposes', 'https://uploads-ssl.webflow.com/5f9a1900790900e2b7f25ba1/62545162b2e07568b0110187_FEATURED_IMAGE-nfts-myths-misconceptions.png');
 // mintNft.then(nft => {
 //     console.log(nft);
 // });
