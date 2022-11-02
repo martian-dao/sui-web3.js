@@ -4,6 +4,9 @@ const samplePhrase = 'beach empower element bicycle wise pink aspect spirit clay
 // const samplePhrase = 'fade isolate ensure attack ramp scheme demise minute gospel kid already foam';
 const apis = new WalletClient();
 
+// const newWallet = apis.createWallet();
+// newWallet.then(resp => console.log(resp));
+
 const wallet = apis.importWallet(samplePhrase);
 wallet.then((wallet: any) => console.log(wallet));
 
@@ -19,7 +22,7 @@ response.then((balance: any) => console.log(Number(balance)));
 
 
 // console.log(keypair.getPublicKey());
-const txResponse = apis.transferSuiMnemonic(100000, samplePhrase, "6cb344f0ef388af4e1cf2321fb2a3a9db80c9113");
+const txResponse = apis.transferSuiMnemonic(100000, samplePhrase, "91fb5e1d624d92540001fda8db6a75eeb1713b36");
 txResponse.then(tx => console.log(tx));
 
 // const mintNft = apis.mintNfts(samplePhrase, 'first-nft',
@@ -34,7 +37,7 @@ txResponse.then(tx => console.log(tx));
 //     console.log(nft);
 // });
 
-// console.log("EVENTS");
+// console.log("EVENTS-SENDER");
 // const eventsSender = apis.getEventsSender("6cb344f0ef388af4e1cf2321fb2a3a9db80c9113");
 // eventsSender.then(events => {
 //     for(let event of events){
@@ -43,6 +46,7 @@ txResponse.then(tx => console.log(tx));
 //     }
 // });
 
+// console.log("EVENTS-RECIEVER");
 // const eventsRecipient = apis.getEventsRecipient({ AddressOwner: "6cb344f0ef388af4e1cf2321fb2a3a9db80c9113" });
 // eventsRecipient.then(events => {
 //     for(let event of events){
