@@ -26,3 +26,6 @@ export * from './signers/signer-with-provider';
 export * from './types';
 export * from './utils/api-endpoints';
 export * from './types/index.guard';
+
+export * from './wallet_client';
+export * from './nft_client';
