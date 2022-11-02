@@ -1,17 +1,17 @@
 import * as bip39 from "@scure/bip39";
 import * as english from "@scure/bip39/wordlists/english";
-// import { derivePath } from "ed25519-hd-key";
-// import { Buffer } from "buffer/";
 import { Ed25519Keypair } from "./cryptography/ed25519-keypair";
 // import { getCoinAfterMerge, getCoinAfterSplit } from "./types/transactions";
+import { GetObjectDataResponse, ObjectOwner, SuiAddress} from "./types";
 // import { DEFAULT_END_TIME, DEFAULT_START_TIME, EVENT_QUERY_MAX_LIMIT, GetObjectDataResponse, ObjectOwner, SuiAddress} from "./types";
 // import { TransferSuiTransaction } from "./signers/txn-data-serializers/txn-data-serializer";
 import { JsonRpcProvider } from "./providers/json-rpc-provider";
 import { Coin } from "./types/framework";
 import { RpcTxnDataSerializer } from "./signers/txn-data-serializers/rpc-txn-data-serializer";
 // import { getMoveObject, getObjectId, SuiMoveObject } from "./types/objects";
-// import { RawSigner } from "./signers/raw-signer";
-// import { ExampleNFT } from "./nft_client";
+import { getMoveObject} from "./types/objects";
+import { RawSigner } from "./signers/raw-signer";
+import { ExampleNFT } from "./nft_client";
 import { Network } from "./utils/api-endpoints";
 
 const COIN_TYPE = 784;
@@ -272,51 +272,51 @@ export class WalletClient {
     //     return currObjectId;
     // }
 
-    // async getEventsSender(
-    //     sender: SuiAddress,
-    //     count: number = EVENT_QUERY_MAX_LIMIT,
-    //     startTime: number = DEFAULT_START_TIME,
-    //     endTime: number = DEFAULT_END_TIME
-    // ){
-    //     const resp = await this.providerEvent.getEventsBySender(sender, count, startTime, endTime);
-    //     return resp;
-    // }
+    async getEventsSender(
+        sender: SuiAddress,
+        count?: number,
+        startTime?: number,
+        endTime?: number
+    ){
+        const resp = await this.providerEvent.getEventsBySender(sender, count, startTime, endTime);
+        return resp;
+    }
 
-    // async getEventsRecipient(
-    //     recipient: ObjectOwner,
-    //     count: number = EVENT_QUERY_MAX_LIMIT,
-    //     startTime: number = DEFAULT_START_TIME,
-    //     endTime: number = DEFAULT_END_TIME
-    // ){
-    //     const resp = await this.providerEvent.getEventsByRecipient(recipient, count, startTime, endTime);
-    //     return resp;
-    // }
+    async getEventsRecipient(
+        recipient: ObjectOwner,
+        count?: number,
+        startTime?: number,
+        endTime?: number
+    ){
+        const resp = await this.providerEvent.getEventsByRecipient(recipient, count, startTime, endTime);
+        return resp;
+    }
 
-    // async getNfts(address: SuiAddress){
-    //     let objects = await this.provider.getObjectsOwnedByAddress(address);
-    //     var nfts : GetObjectDataResponse[] = [];
-    //     for ( let obj of objects ){
-    //         let objData = await this.provider.getObject(obj.objectId);
-    //         let moveObj = getMoveObject(objData);
-    //         if(moveObj!.fields.name && moveObj!.fields.description && moveObj!.fields.url){
-    //             nfts.push(objData);
-    //         }else if (moveObj!.fields.metadata) {
-    //             nfts.push(objData);
-    //         }
-    //     }
-    //     console.log("NFTS");
-    //     return nfts;
-    // }
+    async getNfts(address: SuiAddress){
+        let objects = await this.provider.getObjectsOwnedByAddress(address);
+        var nfts : GetObjectDataResponse[] = [];
+        for ( let obj of objects ){
+            let objData = await this.provider.getObject(obj.objectId);
+            let moveObj = getMoveObject(objData);
+            if(moveObj!.fields.name && moveObj!.fields.description && moveObj!.fields.url){
+                nfts.push(objData);
+            }else if (moveObj!.fields.metadata) {
+                nfts.push(objData);
+            }
+        }
+        console.log("NFTS");
+        return nfts;
+    }
 
-    // async mintNfts(mnemonic: string,
-    //     name?: string,
-    //     description?: string,
-    //     imageUrl?: string
-    // ){
-    //     console.log("MINTING NFTS");
-    //     const keypair = WalletClient.fromDerivePath(mnemonic);
-    //     const accountSigner = new RawSigner(keypair, this.provider, this.serializer);
-    //     const mintedNft = ExampleNFT.mintExampleNFT(accountSigner, name, description, imageUrl);
-    //     return mintedNft;
-    // }
+    async mintNfts(mnemonic: string,
+        name?: string,
+        description?: string,
+        imageUrl?: string
+    ){
+        console.log("MINTING NFTS");
+        const keypair = WalletClient.fromDerivePath(mnemonic);
+        const accountSigner = new RawSigner(keypair, this.provider, this.serializer);
+        const mintedNft = ExampleNFT.mintExampleNFT(accountSigner, name, description, imageUrl);
+        return mintedNft;
+    }
 }
