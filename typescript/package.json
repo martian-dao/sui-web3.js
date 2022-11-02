@@ -1,0 +1,103 @@
+{
+  "name": "@martian/sui.js",
+  "author": "Martian Labs <build@mystenlabs.com>",
+  "description": "Sui TypeScript API(Work in Progress)",
+  "version": "0.15.0",
+  "license": "Apache-2.0",
+  "files": [
+    "dist",
+    "src",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "clean": "rm -rf tsconfig.tsbuildinfo ./dist",
+    "build": "node ./type_guards.mjs && pnpm build:types && tsup ./src/index.ts --format esm,cjs --sourcemap",
+    "build:types": "tsc --build",
+    "doc": "typedoc",
+    "test": "pnpm test:unit && pnpm test:e2e",
+    "test:unit": "vitest unit",
+    "test:e2e": "wait-on http://127.0.0.1:9123 -l --timeout 120000 && vitest e2e",
+    "prepare:e2e": "cargo build --bin sui-test-validator --bin sui --profile dev && cargo run --bin sui-test-validator",
+    "lint": "eslint './{src,test}/**.{ts,js}'",
+    "prepublishOnly": "pnpm build",
+    "size": "size-limit",
+    "analyze": "size-limit --why"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "pnpm lint"
+    }
+  },
+  "prettier": {
+    "printWidth": 80,
+    "semi": true,
+    "singleQuote": true,
+    "trailingComma": "es5"
+  },
+  "bugs": {
+    "url": "https://github.com/MystenLabs/sui/issues/new"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "size-limit": [
+    {
+      "path": "dist/sui.js.cjs.production.min.js",
+      "limit": "10 KB"
+    },
+    {
+      "path": "dist/sui.js.esm.js",
+      "limit": "10 KB"
+    }
+  ],
+  "devDependencies": {
+    "@size-limit/preset-small-lib": "^7.0.8",
+    "@types/bn.js": "^5.1.0",
+    "@types/lossless-json": "^1.0.1",
+    "axios": "^0.27.2",
+    "eslint": "^8.23.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-config-react-app": "^7.0.1",
+    "eslint-plugin-prettier": "^4.2.1",
+    "husky": "^7.0.4",
+    "mockttp": "^2.7.0",
+    "prettier": "^2.7.1",
+    "size-limit": "^7.0.8",
+    "ts-auto-guard": "^2.4.1",
+    "ts-node": "^10.9.1",
+    "tslib": "^2.3.1",
+    "tsup": "^6.2.2",
+    "typedoc": "^0.23.11",
+    "typescript": "^4.8.3",
+    "vite": "^3.1.6",
+    "vitest": "^0.22.1",
+    "wait-on": "^6.0.1"
+  },
+  "dependencies": {
+    "@mysten/bcs": "",
+    "@noble/hashes": "^1.1.2",
+    "@noble/secp256k1": "^1.6.3",
+    "@scure/bip32": "^1.1.0",
+    "@scure/bip39": "^1.1.0",
+    "bn.js": "^5.2.0",
+    "buffer": "^6.0.3",
+    "cross-fetch": "^3.1.5",
+    "jayson": "^3.6.6",
+    "js-sha3": "^0.8.0",
+    "lossless-json": "^1.0.5",
+    "rpc-websockets": "^7.5.0",
+    "tweetnacl": "^1.0.3"
+  }
+}
