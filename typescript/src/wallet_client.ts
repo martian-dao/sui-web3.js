@@ -193,6 +193,10 @@ export class WalletClient {
         return sum;
     }
 
+    async airdrop(address: string) {
+        return await this.provider.requestSuiFromFaucet(address);
+    }
+
     // async mergeCoinsForBalance(
     //     amount: number,
     //     keypair: Ed25519Keypair
