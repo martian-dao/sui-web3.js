@@ -1,25 +1,21 @@
 import * as bip39 from "@scure/bip39";
 import * as english from "@scure/bip39/wordlists/english";
 import { Ed25519Keypair } from "./cryptography/ed25519-keypair";
-// import { getCoinAfterMerge, getCoinAfterSplit } from "./types/transactions";
-import { GetObjectDataResponse, ObjectOwner, SuiAddress} from "./types";
-// import { DEFAULT_END_TIME, DEFAULT_START_TIME, EVENT_QUERY_MAX_LIMIT, GetObjectDataResponse, ObjectOwner, SuiAddress} from "./types";
-// import { TransferSuiTransaction } from "./signers/txn-data-serializers/txn-data-serializer";
+import { getCreatedObjects, GetObjectDataResponse, ObjectOwner, SuiAddress} from "./types";
 import { JsonRpcProvider } from "./providers/json-rpc-provider";
 import { Coin } from "./types/framework";
 import { RpcTxnDataSerializer } from "./signers/txn-data-serializers/rpc-txn-data-serializer";
-// import { getMoveObject, getObjectId, SuiMoveObject } from "./types/objects";
-import { getMoveObject} from "./types/objects";
+import { getMoveObject, getObjectId} from "./types/objects";
 import { RawSigner } from "./signers/raw-signer";
 import { ExampleNFT } from "./nft_client";
-import { Network } from "./utils/api-endpoints";
+// import { Network } from "./utils/api-endpoints";
+import { MergeCoinTransaction, TransferSuiTransaction } from "./signers/txn-data-serializers/txn-data-serializer";
 
 const COIN_TYPE = 784;
 const MAX_ACCOUNTS = 5;
-// const DEV_NET_URL = 'https://fullnode.devnet.sui.io:443';
-const EVENT_NET_URL = 'https://fullnode.devnet.sui.io';
-// const DEFAULT_GAS_BUDGET_FOR_MERGE = 1000;
-// const DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER = 1000;
+const DEV_NET_URL = 'https://fullnode.devnet.sui.io/';
+const DEFAULT_GAS_BUDGET_FOR_MERGE = 1000;
+const DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER = 1000;
 // const DEFAULT_GAS_BUDGET_FOR_SPLIT = 1000;
 
 export interface AccountMetaData {
@@ -35,13 +31,11 @@ export interface Wallet {
 
 export class WalletClient {
     provider: JsonRpcProvider;
-    providerEvent: JsonRpcProvider;
     serializer: RpcTxnDataSerializer;
     
     constructor() {
-        this.provider = new JsonRpcProvider();
-        this.providerEvent = new JsonRpcProvider(EVENT_NET_URL);
-        this.serializer = new RpcTxnDataSerializer(Network.DEVNET);
+        this.provider = new JsonRpcProvider(DEV_NET_URL, );
+        this.serializer = new RpcTxnDataSerializer(DEV_NET_URL);
     }
 
     /**
@@ -139,50 +133,25 @@ export class WalletClient {
         };
     }
 
-    // async transferSui(amount: number, keypair: Ed25519Keypair, receiverAddress: SuiAddress) {
-    //     const senderAddress = keypair.getPublicKey().toSuiAddress();
-    //     const mergedCoinId = await this.mergeCoinsForBalance(amount + DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER, keypair);
-    //     console.log(mergedCoinId);
-    //     // return(mergedCoinId)
-    //     var data:TransferSuiTransaction = {
-    //         suiObjectId: mergedCoinId,
-    //         // suiObjectId: "0x2d459e0193f50e064052201895e40c8281129569",
-    //         gasBudget: DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER,
-    //         recipient: receiverAddress,
-    //         amount: amount
-    //     };
-    //     const unsignedTx = this.serializer.newTransferSui(senderAddress, data);
-    //     const signedTx = keypair.signData(await unsignedTx);
-    //     // console.log(signedTx);
-    //     const response = await this.provider.executeTransactionWithRequestType((await unsignedTx).toString(),
-    //         "ED25519",
-    //         signedTx.toString(),
-    //         keypair.getPublicKey().toString());
-    //     return response;
-    // }
-
-    // async transferSuiMnemonic(amount: number, mnemonic: string, receiverAddress: SuiAddress) {
-    //     const keypair = WalletClient.fromDerivePath(mnemonic);
-    //     const senderAddress = keypair.getPublicKey().toSuiAddress();
-    //     console.log(senderAddress);
-    //     const mergedCoinId = await this.mergeCoinsForBalance(amount + DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER, keypair);
-    //     console.log(mergedCoinId);
-    //     // return(mergedCoinId)
-    //     var data:TransferSuiTransaction = {
-    //         suiObjectId: mergedCoinId,
-    //         // suiObjectId: "0x2d459e0193f50e064052201895e40c8281129569",
-    //         gasBudget: DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER,
-    //         recipient: receiverAddress,
-    //         amount: amount
-    //     };
-    //     const unsignedTx = this.serializer.newTransferSui(senderAddress, data);
-    //     const signedTx = keypair.signData(await unsignedTx);
-    //     const response = await this.provider.executeTransactionWithRequestType((await unsignedTx).toString(),
-    //         "ED25519",
-    //         signedTx.toString(),
-    //         keypair.getPublicKey().toString());
-    //     return response;
-    // }
+    async transferSuiMnemonic(amount: number, mnemonic: string, receiverAddress: SuiAddress) {
+        const keypair = WalletClient.fromDerivePath(mnemonic);
+        const senderAddress = keypair.getPublicKey().toSuiAddress();
+        const mergedCoinId = await this.mergeCoinsForBalance(amount + DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER, keypair);
+        console.log(mergedCoinId);
+        var data:TransferSuiTransaction = {
+            suiObjectId: mergedCoinId,
+            gasBudget: DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER,
+            recipient: receiverAddress,
+            amount: amount
+        };
+        const unsignedTx = this.serializer.newTransferSui(senderAddress, data);
+        const signedTx = keypair.signData(await unsignedTx);
+        const response = await this.provider.executeTransactionWithRequestType((await unsignedTx).toString(),
+            "ED25519",
+            signedTx.toString(),
+            keypair.getPublicKey().toString());
+        return response;
+    }
 
     async getBalance(address: string) {
         let objects = await this.provider.getCoinBalancesOwnedByAddress(address);
@@ -197,84 +166,38 @@ export class WalletClient {
         return await this.provider.requestSuiFromFaucet(address);
     }
 
-    // async mergeCoinsForBalance(
-    //     amount: number,
-    //     keypair: Ed25519Keypair
-    // ){
-    //     const coins = await this.getSuiCoins(keypair.getPublicKey().toSuiAddress());
-    //     coins.sort((a, b) => (Number(Coin.getBalance(a)!) - Number(Coin.getBalance(b)!)> 0 ? 1 : -1));
-    //     for(let obj of coins){
-    //         console.log(Number(Coin.getBalance(obj)!));
-    //     }
-    //     const coinWithSufficientBalance = coins.find(
-    //         (coin) => Number(Coin.getBalance(coin)!) >= amount
-    //     );
-    //     if (coinWithSufficientBalance) {
-    //         return getObjectId(coinWithSufficientBalance);
-    //     }
-    //     //merge if no coin exist
-    //     console.log("Merging Coins:");
-    //     const primaryCoin = coins[coins.length - 1];
-    //     console.log(getObjectId(primaryCoin));
-        
-    //     let expectedBalance = Number(Coin.getBalance(primaryCoin)!);
-    //     const coinsToMerge:string[] = [];
-    //     for (let i = coins.length - 2; i > 0; i--) {
-    //         console.log(getObjectId(coins[i]));
-    //         expectedBalance += Number(Coin.getBalance(coins[i])!);
-    //         coinsToMerge.push(getObjectId(coins[i]));
-    //         if (expectedBalance >= amount) {
-    //             break;
-    //         }
-    //     }
-    //     if (expectedBalance < amount) {
-    //         throw new Error('Insufficient balance');
-    //     }
-    //     console.log("here");
-        
-    //     const senderAddress = keypair.getPublicKey().toSuiAddress();
-    //     let currObjectId = getObjectId(primaryCoin);
-    //     let currBalance:number = Number(Coin.getBalance(primaryCoin)!);
-    //     for (let coin of coinsToMerge) {
-    //         const gasCoin = coins.find(
-    //             (coin) => Number(Coin.getBalance(coin)!) >= DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER
-    //         );
-    //         if(coin == getObjectId(gasCoin!)){
-    //             //split gas coin
-    //             console.log("spliting");
-    //             const unsignedTxSplit = await this.serializer.newSplitCoin(senderAddress, {
-    //                 coinObjectId: coin,
-    //                 splitAmounts: [Number(DEFAULT_GAS_BUDGET_FOR_MERGE)],
-    //               //   gasPayment: coin,
-    //                 gasBudget: DEFAULT_GAS_BUDGET_FOR_SPLIT,
-    //             });
-    //             const signedTxSplit = keypair.signData(unsignedTxSplit);
-    //             const responseSplit = await this.provider.executeTransactionWithRequestType((unsignedTxSplit).toString(),
-    //                 "ED25519",
-    //                 signedTxSplit.toString(),
-    //                 keypair.getPublicKey().toString());
-    //             coin = getCoinAfterSplit(responseSplit)!.reference.objectId;
-    //         }
-    //         const unsignedTx = await this.serializer.newMergeCoin(senderAddress, {
-    //           primaryCoin: currObjectId,
-    //           coinToMerge: coin,
-    //         //   gasPayment: coin,
-    //           gasBudget: DEFAULT_GAS_BUDGET_FOR_MERGE,
-    //         });
-    //         const signedTx = keypair.signData(unsignedTx);
-    //         const response = await this.provider.executeTransactionWithRequestType((unsignedTx).toString(),
-    //         "ED25519",
-    //         signedTx.toString(),
-    //         keypair.getPublicKey().toString());
-    //         const obj = getCoinAfterMerge(response);
-    //         currObjectId = obj!.reference.objectId;
-    //         currBalance = currBalance + Number(Coin.getBalance(getMoveObject(obj!) as SuiMoveObject)!);
-    //     }
-    //     // if(currBalance != expectedBalance){
-    //     //     throw new Error('Merge coins failed caused by transactions conflicted');
-    //     // }
-    //     return currObjectId;
-    // }
+    async mergeCoinsForBalance(
+        amount: number,
+        keypair: Ed25519Keypair
+    ){
+        const address = keypair.getPublicKey().toSuiAddress();
+        //coins sorted in ascending order
+        const coinsToMerge = await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(address, BigInt(amount));
+        if(coinsToMerge.length == 1){
+            console.log("Single Coin Found");
+            return getObjectId(coinsToMerge[0]);
+        }
+        console.log("Merging Coins:");
+        const signer = new RawSigner(keypair, this.provider, this.serializer);
+
+        let primaryCoinRef = coinsToMerge[coinsToMerge.length - 1];
+        let primaryId = getObjectId(primaryCoinRef);
+
+        coinsToMerge.pop();
+        for (let coin of coinsToMerge){
+            const coinId = getObjectId(coin);
+            const mergeTransact:MergeCoinTransaction = {
+                primaryCoin: primaryId,
+                coinToMerge: coinId,
+                gasBudget: DEFAULT_GAS_BUDGET_FOR_MERGE,
+            };
+            const response = await signer.mergeCoinWithRequestType(mergeTransact);
+            // const response = await this.serializer.newMergeCoin(address, mergeTransact);
+            console.log((getCreatedObjects(response)![0]).reference);
+            primaryId = await getObjectId((getCreatedObjects(response)![0]).reference);
+        }
+        return primaryId;
+    }
 
     async getEventsSender(
         sender: SuiAddress,
@@ -282,7 +205,7 @@ export class WalletClient {
         startTime?: number,
         endTime?: number
     ){
-        const resp = await this.providerEvent.getEventsBySender(sender, count, startTime, endTime);
+        const resp = await this.provider.getEventsBySender(sender, count, startTime, endTime);
         return resp;
     }
 
@@ -292,7 +215,7 @@ export class WalletClient {
         startTime?: number,
         endTime?: number
     ){
-        const resp = await this.providerEvent.getEventsByRecipient(recipient, count, startTime, endTime);
+        const resp = await this.provider.getEventsByRecipient(recipient, count, startTime, endTime);
         return resp;
     }
 

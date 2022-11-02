@@ -1,6 +1,7 @@
 import { WalletClient } from './wallet_client';
 
-const samplePhrase = 'fade isolate ensure attack ramp scheme demise minute gospel kid already foam';
+const samplePhrase = 'beach empower element bicycle wise pink aspect spirit clay always flush fold';
+// const samplePhrase = 'fade isolate ensure attack ramp scheme demise minute gospel kid already foam';
 const apis = new WalletClient();
 
 const wallet = apis.importWallet(samplePhrase);
@@ -12,15 +13,14 @@ console.log(keypair);
 
 
 const address = keypair.getPublicKey().toSuiAddress();
-apis.airdrop(address);
+// apis.airdrop(address);
 const response = apis.getBalance(address);
 response.then((balance: any) => console.log(Number(balance)));
 
 
 // console.log(keypair.getPublicKey());
-// const txResponse = apis.transferSui(1000000, keypair, "cc2adf1e1de035c439f301860e582628a59744b7");
-// const txResponse = apis.transferSuiMnemonic(10000, samplePhrase, "0xcc2adf1e1de035c439f301860e582628a59744b7");
-// txResponse.then(tx => console.log(tx));
+const txResponse = apis.transferSuiMnemonic(100000, samplePhrase, "6cb344f0ef388af4e1cf2321fb2a3a9db80c9113");
+txResponse.then(tx => console.log(tx));
 
 // const mintNft = apis.mintNfts(samplePhrase, 'first-nft',
 // 'testing purposes', 'https://ipfs.io/ipfs/bafkreibngqhl3gaa7daob4i2vccziay2jjlp435cf66vhono7nrvww53ty');

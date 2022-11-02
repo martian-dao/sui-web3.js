@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import RpcClient from 'jayson/lib/client/browser/index.js';
-import fetch from 'cross-fetch';
+// import fetch from 'cross-fetch';
+import fetch from 'isomorphic-fetch';
 import { isErrorResponse, isValidResponse } from './client.guard';
 import * as LosslessJSON from 'lossless-json';
 
@@ -49,6 +50,7 @@ export class JsonRpcClient {
         };
 
         try {
+          // console.log(url);
           let res: Response = await fetch(url, options);
           const text = await res.text();
           let result;
