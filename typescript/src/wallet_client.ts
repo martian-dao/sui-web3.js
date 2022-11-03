@@ -109,8 +109,11 @@ export class WalletClient {
      *
      * @returns A wallet object
      */
-    async createWallet(): Promise<Wallet> {
-        const code = bip39.generateMnemonic(english.wordlist); // mnemonic
+    async createWallet(code: string): Promise<Wallet> {
+        if(!code){
+            // mnemonic
+            code = bip39.generateMnemonic(english.wordlist); 
+        }
         const accountMetadata = await this.createNewAccount(code, 0);
         return { code, accounts: [accountMetadata] };
     }

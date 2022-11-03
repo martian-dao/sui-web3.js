@@ -24,6 +24,7 @@
   "scripts": {
     "clean": "rm -rf tsconfig.tsbuildinfo ./dist",
     "build": "node ./type_guards.mjs && pnpm build:types && tsup ./src/index.ts --format esm,cjs --sourcemap",
+    "build.windows": "pnpm build:types && tsup ./src/index.ts --format esm,cjs --sourcemap",
     "build:types": "tsc --build",
     "doc": "typedoc",
     "test": "pnpm test:unit && pnpm test:e2e",
@@ -87,7 +88,7 @@
     "wait-on": "^6.0.1"
   },
   "dependencies": {
-    "@mysten/bcs": "",
+    "@mysten/bcs": "^0.4.0",
     "@noble/hashes": "^1.1.2",
     "@noble/secp256k1": "^1.6.3",
     "@scure/bip32": "^1.1.0",
