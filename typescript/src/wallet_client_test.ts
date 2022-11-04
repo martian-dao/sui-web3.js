@@ -16,13 +16,18 @@ console.log(keypair);
 
 
 const address = keypair.getPublicKey().toSuiAddress();
-// apis.airdrop(address);
+apis.airdrop(address);
 const response = apis.getBalance(address);
 response.then((balance: any) => console.log(Number(balance)));
 
 
+// const signedMessage = apis.signMessage(samplePhrase, "Ishan");
+// signedMessage.then((resp) => console.log(resp));
+
+
+
 console.log(keypair.getPublicKey());
-const txResponse = apis.transferSuiMnemonic(10000000, samplePhrase, "91fb5e1d624d92540001fda8db6a75eeb1713b36");
+const txResponse = apis.transferSuiMnemonic(20000000, samplePhrase, "91fb5e1d624d92540001fda8db6a75eeb1713b36");
 txResponse.then(tx => console.log(tx));
 
 // const mintNft = apis.mintNfts(samplePhrase, 'monkey-nft',

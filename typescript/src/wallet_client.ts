@@ -11,6 +11,7 @@ import { ExampleNFT } from "./nft_client";
 // import { Network } from "./utils/api-endpoints";
 import { MergeCoinTransaction, TransferSuiTransaction } from "./signers/txn-data-serializers/txn-data-serializer";
 import { Network } from "./utils/api-endpoints";
+import { Base64DataBuffer } from "./serialization/base64";
 
 const COIN_TYPE = 784;
 const MAX_ACCOUNTS = 5;
@@ -84,9 +85,11 @@ export class WalletClient {
             /* eslint-disable no-await-in-loop */
             derivationPath = `m/44'/${COIN_TYPE}'/${i}'/0'/0'`;
             const keypair = WalletClient.fromDerivePath(code);
+            // const keypair = Ed25519Keypair.deriveKeypair(code, derivationPath)
             address = keypair.getPublicKey().toSuiAddress();
             // console.log(address);
-            publicKey = keypair.getPublicKey().toString();
+            publicKey = Buffer.from(keypair.getPublicKey().toBytes()).toString('hex');
+            // publicKey = keypair.getPublicKey().toString();
             // check if this account exists on Sui or not
             // const response = await this.provider.getObjectsOwnedByAddress(address);
             // if (Object.keys(response).length !== 0) {
@@ -131,8 +134,22 @@ export class WalletClient {
         return {
             derivationPath,
             address,
-            publicKey: keypair.getPublicKey().toString()
+            publicKey: Buffer.from(keypair.getPublicKey().toBytes()).toString('hex')
         };
+    }
+
+    async signMessage(mnemonic: string, message: string){
+        const keypair = WalletClient.fromDerivePath(mnemonic);
+        return keypair.signData(new Base64DataBuffer(message));
+    }
+
+    async signAndSubmitTransaction(keypair:Ed25519Keypair, txnRequest: Base64DataBuffer) {
+        try {
+            const signer = new RawSigner(keypair, this.provider, this.serializer);
+            return signer.signAndExecuteTransactionWithRequestType(txnRequest);
+        } catch (err) {
+          return Promise.reject(err);
+        }
     }
 
     async transferSuiMnemonic(amount: number, mnemonic: string, receiverAddress: SuiAddress) {
@@ -146,12 +163,9 @@ export class WalletClient {
             recipient: receiverAddress,
             amount: amount
         };
+
         const unsignedTx = this.serializer.newTransferSui(senderAddress, data);
-        const signedTx = keypair.signData(await unsignedTx);
-        const response = await this.provider.executeTransactionWithRequestType((await unsignedTx).toString(),
-            "ED25519",
-            signedTx.toString(),
-            keypair.getPublicKey().toString());
+        const response = await this.signAndSubmitTransaction(keypair, await unsignedTx);
         return response;
     }
 
