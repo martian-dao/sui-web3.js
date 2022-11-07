@@ -10,7 +10,6 @@ import { RawSigner } from "./signers/raw-signer";
 import { ExampleNFT } from "./nft_client";
 // import { Network } from "./utils/api-endpoints";
 import { MergeCoinTransaction, TransferSuiTransaction } from "./signers/txn-data-serializers/txn-data-serializer";
-import { Network } from "./utils/api-endpoints";
 import { Base64DataBuffer } from "./serialization/base64";
 
 const COIN_TYPE = 784;
@@ -87,7 +86,6 @@ export class WalletClient {
             const keypair = WalletClient.fromDerivePath(code);
             // const keypair = Ed25519Keypair.deriveKeypair(code, derivationPath)
             address = keypair.getPublicKey().toSuiAddress();
-            // console.log(address);
             publicKey = Buffer.from(keypair.getPublicKey().toBytes()).toString('hex');
             // publicKey = keypair.getPublicKey().toString();
             // check if this account exists on Sui or not
@@ -156,7 +154,6 @@ export class WalletClient {
         const keypair = WalletClient.fromDerivePath(mnemonic);
         const senderAddress = keypair.getPublicKey().toSuiAddress();
         const mergedCoinId = await this.mergeCoinsForBalance(amount + DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER, keypair);
-        console.log(mergedCoinId);
         var data:TransferSuiTransaction = {
             suiObjectId: mergedCoinId,
             gasBudget: DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER,
@@ -179,7 +176,6 @@ export class WalletClient {
     }
 
     async airdrop(address: string) {
-        console.log(Network.DEVNET);
         return await this.provider.requestSuiFromFaucet(address);
     }
 
@@ -191,10 +187,8 @@ export class WalletClient {
         //coins sorted in ascending order
         const coinsToMerge = await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(address, BigInt(amount));
         if(coinsToMerge.length == 1){
-            console.log("Single Coin Found");
             return getObjectId(coinsToMerge[0]);
         }
-        console.log("Merging Coins:");
         const signer = new RawSigner(keypair, this.provider, this.serializer);
 
         let primaryCoinRef = coinsToMerge[coinsToMerge.length - 1];
@@ -245,7 +239,6 @@ export class WalletClient {
                 nfts.push(objData);
             }
         }
-        console.log("NFTS");
         return nfts;
     }
 
@@ -254,7 +247,6 @@ export class WalletClient {
         description?: string,
         imageUrl?: string
     ){
-        console.log("MINTING NFTS");
         const keypair = WalletClient.fromDerivePath(mnemonic);
         const accountSigner = new RawSigner(keypair, this.provider, this.serializer);
         const mintedNft = ExampleNFT.mintExampleNFT(accountSigner, name, description, imageUrl);

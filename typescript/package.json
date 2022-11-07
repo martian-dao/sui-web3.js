@@ -2,7 +2,7 @@
   "name": "@martian/sui.js",
   "author": "Martian Labs <build@mystenlabs.com>",
   "description": "Sui TypeScript API(Work in Progress)",
-  "version": "0.15.0",
+  "version": "0.15.2",
   "license": "Apache-2.0",
   "files": [
     "dist",
