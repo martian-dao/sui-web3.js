@@ -50,7 +50,6 @@ export class JsonRpcClient {
         };
 
         try {
-          // console.log(url);
           let res: Response = await fetch(url, options);
           const text = await res.text();
           let result;
