@@ -85,6 +85,24 @@ export type MoveEventField = {
   value: SuiJsonValue;
 };
 
+export type EventQuery =
+    | "All"
+    | { "Transaction": TransactionDigest }
+    | { "MoveModule": { package: ObjectId, module: string } }
+    | { "MoveEvent": string }
+    | { "EventType": EventType }
+    | { "Sender": SuiAddress }
+    | { "Recipient": ObjectOwner }
+    | { "Object": ObjectId }
+    | { "TimeRange": { "start_time": number, "end_time": number } };
+
+export type EventId = string
+
+export type PaginatedEvents = {
+  data: SuiEvents;
+  nextCursor: EventId | null;
+};
+
 export type EventType =
   | 'MoveEvent'
   | 'Publish'
@@ -114,6 +132,7 @@ export type SuiEventFilter =
 export type SuiEventEnvelope = {
   timestamp: number;
   txDigest: TransactionDigest;
+  id: EventId;  // tx_seq_num:event_seq
   event: SuiEvent;
 };
 

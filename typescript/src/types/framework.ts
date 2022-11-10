@@ -31,7 +31,7 @@ export const COIN_TYPE = `${SUI_FRAMEWORK_ADDRESS}::coin::Coin`;
 export const PAY_MODULE_NAME = 'pay';
 export const PAY_SPLIT_COIN_VEC_FUNC_NAME = 'split_vec';
 export const PAY_JOIN_COIN_FUNC_NAME = 'join';
-const COIN_TYPE_ARG_REGEX = /^0x2::coin::Coin<(.+)>$/;
+export const COIN_TYPE_ARG_REGEX = /^0x2::coin::Coin<(.+)>$/;
 
 type ObjectData = ObjectDataFull | SuiObjectInfo;
 type ObjectDataFull = GetObjectDataResponse | SuiMoveObject;
@@ -45,9 +45,14 @@ export class Coin {
     return Coin.getType(data)?.startsWith(COIN_TYPE) ?? false;
   }
 
+  static getCoinType(type: string) {
+    const [, res] = type.match(COIN_TYPE_ARG_REGEX) ?? [];
+    return res || null;
+  }
+
   static getCoinTypeArg(obj: ObjectData) {
-    const res = Coin.getType(obj)?.match(COIN_TYPE_ARG_REGEX);
-    return res ? res[1] : null;
+    const type = Coin.getType(obj);
+    return type ? Coin.getCoinType(type) : null;
   }
 
   static isSUI(obj: ObjectData) {

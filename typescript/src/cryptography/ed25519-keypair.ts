@@ -117,13 +117,6 @@ export class Ed25519Keypair implements Keypair {
   }
 
   /**
-   * Return the signature for the provided data using Ed25519.
-   */
-  signBuffer(data: Uint8Array): Uint8Array {
-    return  nacl.sign.detached(data, this.keypair.secretKey);
-  }
-
-  /**
    * Derive Ed25519 keypair from mnemonics and path. The mnemonics must be normalized
    * and validated against the english wordlist.
    *

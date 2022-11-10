@@ -248,91 +248,108 @@ export class WalletClient {
     return resp;
   }
 
-  async getTransactions(
-    address: SuiAddress,
-    count?: number,
-    startTime?: number,
-    endTime?: number
-  ) {
-    const sentActivity = await this.getEventsSender(
-      address,
-      count,
-      startTime,
-      endTime
-    );
-    const receivedActivity = await this.getEventsRecipient(
-      { AddressOwner: address },
-      count,
-      startTime,
-      endTime
+  // async getTransactions(
+  //   address: SuiAddress,
+  //   count?: number,
+  //   startTime?: number,
+  //   endTime?: number
+  // ) {
+  //   const sentActivity = await this.getEventsSender(
+  //     address,
+  //     count,
+  //     startTime,
+  //     endTime
+  //   );
+  //   const receivedActivity = await this.getEventsRecipient(
+  //     { AddressOwner: address },
+  //     count,
+  //     startTime,
+  //     endTime
+  //   );
+
+  //   const transactions: any = {};
+
+  //   receivedActivity.concat(sentActivity).forEach((activity: any) => {
+  //     if (!transactions[activity.txDigest]) {
+  //       transactions[activity.txDigest] = {
+  //         events: [activity.event],
+  //         timestamp: activity.timestamp,
+  //         date: new Date(parseInt(activity.timestamp)).toLocaleDateString(
+  //           'en-GB',
+  //           {
+  //             year: 'numeric',
+  //             month: 'long',
+  //             day: 'numeric',
+  //           }
+  //         ),
+  //         txDigest: activity.txDigest,
+  //         changes: {
+  //           balance: {
+  //             [activity.event.coinBalanceChange.coinType]:
+  //               activity.event.coinBalanceChange &&
+  //               activity.event.coinBalanceChange.changeType !== 'Gas'
+  //                 ? activity.event.coinBalanceChange.amount
+  //                 : 0,
+  //           },
+  //           nft:
+  //             activity.event.moveEvent &&
+  //             activity.event.moveEvent.type === '0x2::devnet_nft::MintNFTEvent'
+  //               ? 'Mint'
+  //               : null,
+  //         },
+  //       };
+  //     } else {
+  //       transactions[activity.txDigest].events.push(activity.event);
+  //       if (activity.event.coinBalanceChange) {
+  //         if (
+  //           transactions[activity.txDigest].changes.balance[
+  //             activity.event.coinBalanceChange.coinType
+  //           ]
+  //         ) {
+  //           transactions[activity.txDigest].changes.balance[
+  //             activity.event.coinBalanceChange.coinType
+  //           ] += activity.event.coinBalanceChange.amount;
+  //         } else {
+  //           transactions[activity.txDigest].changes.balance[
+  //             activity.event.coinBalanceChange.coinType
+  //           ] =
+  //             activity.event.coinBalanceChange.changeType !== 'Gas'
+  //               ? activity.event.coinBalanceChange.amount
+  //               : 0;
+  //         }
+  //       } else if (activity.event.moveEvent) {
+  //         if (
+  //           activity.event.moveEvent.type === '0x2::devnet_nft::MintNFTEvent'
+  //         ) {
+  //           transactions[activity.txDigest].changes.nft = 'Mint';
+  //         }
+  //       }
+  //     }
+  //   });
+
+  //   const sortedTransactions = Object.values(transactions).sort(
+  //     (a: any, b: any) => {
+  //       return a.timestamp - b.timestamp;
+  //     }
+  //   );
+  //   return sortedTransactions;
+  // }
+
+  async getTransactions(address: SuiAddress) {
+    const transactions = await this.provider.getTransactionsForAddress(address);
+
+    const finalTransacationsData: any[] = [];
+    await Promise.all(
+      transactions.map(async (digest: string) => {
+        const transactionData = await this.provider.getTransactionWithEffects(
+          digest
+        );
+        finalTransacationsData.push(transactionData);
+      })
     );
 
-    const transactions: any = {};
-
-    receivedActivity.concat(sentActivity).forEach((activity: any) => {
-      if (!transactions[activity.txDigest]) {
-        transactions[activity.txDigest] = {
-          events: [activity.event],
-          timestamp: activity.timestamp,
-          date: new Date(parseInt(activity.timestamp)).toLocaleDateString(
-            'en-GB',
-            {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-            }
-          ),
-          txDigest: activity.txDigest,
-          changes: {
-            balance: {
-              [activity.event.coinBalanceChange.coinType]:
-                activity.event.coinBalanceChange &&
-                activity.event.coinBalanceChange.changeType !== 'Gas'
-                  ? activity.event.coinBalanceChange.amount
-                  : 0,
-            },
-            nft:
-              activity.event.moveEvent &&
-              activity.event.moveEvent.type === '0x2::devnet_nft::MintNFTEvent'
-                ? 'Mint'
-                : null,
-          },
-        };
-      } else {
-        transactions[activity.txDigest].events.push(activity.event);
-        if (activity.event.coinBalanceChange) {
-          if (
-            transactions[activity.txDigest].changes.balance[
-              activity.event.coinBalanceChange.coinType
-            ]
-          ) {
-            transactions[activity.txDigest].changes.balance[
-              activity.event.coinBalanceChange.coinType
-            ] += activity.event.coinBalanceChange.amount;
-          } else {
-            transactions[activity.txDigest].changes.balance[
-              activity.event.coinBalanceChange.coinType
-            ] =
-              activity.event.coinBalanceChange.changeType !== 'Gas'
-                ? activity.event.coinBalanceChange.amount
-                : 0;
-          }
-        } else if (activity.event.moveEvent) {
-          if (
-            activity.event.moveEvent.type === '0x2::devnet_nft::MintNFTEvent'
-          ) {
-            transactions[activity.txDigest].changes.nft = 'Mint';
-          }
-        }
-      }
-    });
-
-    const sortedTransactions = Object.values(transactions).sort(
-      (a: any, b: any) => {
-        return a.timestamp - b.timestamp;
-      }
-    );
-    return sortedTransactions;
+    console.log({ finalTransacationsData });
+    return finalTransacationsData;
   }
 
   async getNfts(address: SuiAddress) {
