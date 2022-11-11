@@ -166,7 +166,7 @@ export class WalletClient {
     };
     const unsignedTx = this.serializer.newTransferSui(senderAddress, data);
     const signedTx = keypair.signData(await unsignedTx);
-    const response = await this.provider.executeTransactionWithRequestType(
+    const response = await this.provider.executeTransaction(
       (await unsignedTx).toString(),
       'ED25519',
       signedTx.toString(),
@@ -215,7 +215,7 @@ export class WalletClient {
         coinToMerge: coinId,
         gasBudget: DEFAULT_GAS_BUDGET_FOR_MERGE,
       };
-      await signer.mergeCoinWithRequestType(mergeTransact);
+      await signer.mergeCoin(mergeTransact);
     }
     return primaryId;
   }
