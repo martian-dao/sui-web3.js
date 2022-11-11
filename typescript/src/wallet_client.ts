@@ -85,6 +85,7 @@ export class WalletClient {
     for (let i = 0; i < MAX_ACCOUNTS; i += 1) {
       /* eslint-disable no-await-in-loop */
       derivationPath = `m/44'/${COIN_TYPE}'/${i}'/0'/0'`;
+      // derivationPath = `m/44'/${COIN_TYPE}'/0'/0'/${i}'`;
       const keypair = WalletClient.fromDerivePath(code);
       // const keypair = Ed25519Keypair.deriveKeypair(code, derivationPath)
       address = keypair.getPublicKey().toSuiAddress();
@@ -137,10 +138,11 @@ export class WalletClient {
     const derivationPath = `m/44'/${COIN_TYPE}'/${index}'/0'/0'`;
     const keypair = WalletClient.fromDerivePath(code);
     const address = keypair.getPublicKey().toSuiAddress();
+    const pubKey = Buffer.from(keypair.getPublicKey().toBytes()).toString('hex');
     return {
       derivationPath,
       address,
-      publicKey: keypair.getPublicKey().toString(),
+      publicKey: pubKey,
     };
   }
 
