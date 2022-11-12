@@ -23,6 +23,8 @@ const DEFAULT_GAS_BUDGET_FOR_MERGE = 1000;
 const DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER = 1000;
 // const DEFAULT_GAS_BUDGET_FOR_SPLIT = 1000;
 
+const AIRDROP_SENDER = '0xc4173a804406a365e69dfb297d4eaaf002546ebd';
+
 export interface AccountMetaData {
   derivationPath: string; //"44'/784'/1'/0'/0'"
   address: string;
@@ -164,7 +166,7 @@ export class WalletClient {
     };
     const unsignedTx = this.serializer.newTransferSui(senderAddress, data);
     const signedTx = keypair.signData(await unsignedTx);
-    const response = await this.provider.executeTransactionWithRequestType(
+    const response = await this.provider.executeTransaction(
       (await unsignedTx).toString(),
       'ED25519',
       signedTx.toString(),
@@ -213,7 +215,7 @@ export class WalletClient {
         coinToMerge: coinId,
         gasBudget: DEFAULT_GAS_BUDGET_FOR_MERGE,
       };
-      await signer.mergeCoinWithRequestType(mergeTransact);
+      await signer.mergeCoin(mergeTransact);
     }
     return primaryId;
   }
@@ -344,9 +346,120 @@ export class WalletClient {
         const transactionData = await this.provider.getTransactionWithEffects(
           digest
         );
-        finalTransacationsData.push(transactionData);
+
+        const events = transactionData.effects.events;
+        const coinBalanceReceiveEvents = events?.filter(
+          (event) =>
+            event.coinBalanceChange &&
+            event.coinBalanceChange.owner?.AddressOwner === address
+        );
+        const coinBalanceSendEvents = events?.filter(
+          (event) =>
+            event.coinBalanceChange &&
+            event.coinBalanceChange.sender === address &&
+            event.coinBalanceChange.changeType !== 'Gas'
+        );
+        const transferEvents: any = events?.filter(
+          (event) => event.transferObject
+        );
+
+        let totalCoinBalanceChange: number = 0;
+        let changeType: any = {
+          type: '',
+          from: '',
+          to: '',
+          resourceType: '',
+          changeTextSuffix: '',
+        };
+
+        coinBalanceReceiveEvents?.forEach((event) => {
+          totalCoinBalanceChange += event.coinBalanceChange.amount;
+          if (!changeType.type) {
+            if (event.coinBalanceChange.sender === AIRDROP_SENDER) {
+              changeType = {
+                type: 'Receive',
+                text: 'Airdrop',
+                from: event.coinBalanceChange.sender,
+                to: event.coinBalanceChange.owner?.AddressOwner,
+                resourceType: event.coinBalanceChange.coinType,
+                changeTextSuffix: ' SUI',
+              };
+            } else {
+              changeType = {
+                type: 'Receive',
+                text: 'Received',
+                from: event.coinBalanceChange.sender,
+                to: event.coinBalanceChange.owner?.AddressOwner,
+                resourceType: event.coinBalanceChange.coinType,
+                changeTextSuffix: ' SUI',
+              };
+            }
+          }
+        });
+
+        coinBalanceSendEvents?.forEach((event) => {
+          totalCoinBalanceChange += event.coinBalanceChange.amount;
+          if (!changeType.type) {
+            changeType = {
+              type: 'Send',
+              text: 'Sent',
+              from: event.coinBalanceChange.sender,
+              to: event.coinBalanceChange.owner?.AddressOwner,
+              resourceType: event.coinBalanceChange.coinType,
+              changeTextSuffix: ' SUI',
+            };
+          }
+        });
+
+        await Promise.all(
+          transferEvents?.map(async (event: any) => {
+            if (
+              event.transferObject.objectType === '0x2::devnet_nft::DevNetNFT'
+            ) {
+              const nftData = await this.provider.getObject(
+                event.transferObject.objectId
+              );
+
+              const nftDetails: any = nftData.details;
+              changeType = {
+                nftData: nftDetails,
+                type:
+                  event.transferObject.recipient?.AddressOwner === address
+                    ? 'Receive'
+                    : 'Send',
+                text:
+                  event.transferObject.recipient?.AddressOwner === address
+                    ? 'NFT Received'
+                    : 'NFT Sent',
+                from: event.transferObject.sender,
+                to: event.transferObject.recipient?.AddressOwner,
+                resourceType: event.transferObject.objectType,
+                changeTextSuffix: ` ${nftDetails?.data?.fields?.name}`,
+              };
+              totalCoinBalanceChange =
+                event.transferObject.recipient?.AddressOwner === address
+                  ? 1
+                  : -1;
+            }
+          })
+        );
+
+        const timestamp: any = transactionData.timestamp_ms;
+
+        finalTransacationsData.push({
+          ...transactionData,
+          totalCoinBalanceChange,
+          changeType,
+          date: new Date(timestamp).toLocaleDateString('en-GB', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          }),
+        });
       })
     );
+
+    finalTransacationsData.sort((a, b) => a.timestamp_ms - b.timestamp_ms);
 
     console.log({ finalTransacationsData });
     return finalTransacationsData;
