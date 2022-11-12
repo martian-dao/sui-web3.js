@@ -70,7 +70,7 @@ export class Ed25519Keypair implements Keypair {
       // Many users actually wanted to invoke fromSeed(seed: Uint8Array), especially when reading from keystore.
       if (secretKeyLength == 32) {
         throw new Error(
-            'Wrong secretKey size. Expected 64 bytes, got 32. Similar function exists: fromSeed(seed: Uint8Array)'
+          'Wrong secretKey size. Expected 64 bytes, got 32. Similar function exists: fromSeed(seed: Uint8Array)'
         );
       }
       throw new Error(`Wrong secretKey size. Expected 64 bytes, got ${secretKeyLength}.`);
@@ -114,6 +114,13 @@ export class Ed25519Keypair implements Keypair {
     return new Base64DataBuffer(
       nacl.sign.detached(data.getData(), this.keypair.secretKey)
     );
+  }
+
+  /**
+  * Return the signature for the provided data using Ed25519.
+  */
+  signBuffer(data: Uint8Array): Uint8Array {
+    return nacl.sign.detached(data, this.keypair.secretKey);
   }
 
   /**
