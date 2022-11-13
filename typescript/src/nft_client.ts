@@ -34,11 +34,11 @@ export class ExampleNFT {
     signer: RawSigner,
     nftId: string,
     recipientID: string,
-    transferCost: number
+    transferCost?: number
   ): Promise<SuiExecuteTransactionResponse> {
     return await signer.transferObject({
       objectId: nftId,
-      gasBudget: transferCost,
+      gasBudget: transferCost || 10000,
       recipient: recipientID,
     });
   }
