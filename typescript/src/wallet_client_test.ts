@@ -11,14 +11,16 @@ const wallet = apis.importWallet(samplePhrase);
 wallet.then((wallet: any) => console.log(wallet));
 
 const keypair = WalletClient.fromDerivePath(samplePhrase);
+
 console.log(keypair.getPublicKey().toSuiAddress());
-console.log(keypair);
+console.log(keypair.getPublicKey().toString());
+console.log(keypair.getSecretKey());
+// console.log(keypair.secretKey);
 
-
-// const address = keypair.getPublicKey().toSuiAddress();
-apis.airdrop("db844e3e7e4a989ff5304ed2c3b0208abfb717d8");
-// const response = apis.getBalance(address);
-// response.then((balance: any) => console.log(Number(balance)));
+const address = keypair.getPublicKey().toSuiAddress();
+// apis.airdrop(address);
+const response = apis.getBalance(address);
+response.then((balance: any) => console.log(Number(balance)));
 
 
 // const signedMessage = apis.signMessage(samplePhrase, "Ishan");
