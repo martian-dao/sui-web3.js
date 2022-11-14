@@ -68,6 +68,17 @@ export class WalletClient {
   }
 
   /**
+   * returns an Ed25519Keypair object given a private key and
+   * address of the account
+   *
+   * @param privateKey Private key of an account as a Buffer
+   * @returns Ed25519Keypair object
+   */
+  static getAccountFromPrivateKey(privateKey: Buffer): Ed25519Keypair {
+    return Ed25519Keypair.fromSeed(privateKey.slice(0, 32));
+  }
+
+  /**
    * Each mnemonic phrase corresponds to a single wallet
    * Wallet can contain multiple accounts
    * An account corresponds to a key pair + address
