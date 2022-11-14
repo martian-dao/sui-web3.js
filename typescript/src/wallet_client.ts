@@ -13,7 +13,6 @@ import {
   MergeCoinTransaction,
   TransferSuiTransaction,
 } from './signers/txn-data-serializers/txn-data-serializer';
-import { Network } from './utils/api-endpoints';
 
 const COIN_TYPE = 784;
 const MAX_ACCOUNTS = 5;
@@ -163,18 +162,15 @@ export class WalletClient {
 
   async transferSuiMnemonic(
     amount: number,
-    mnemonic: string,
+    suiAccount: Ed25519Keypair,
     receiverAddress: SuiAddress
   ) {
-    const keypair = WalletClient.fromDerivePath(mnemonic);
+    const keypair = suiAccount;
     const senderAddress = keypair.getPublicKey().toSuiAddress();
-
-    console.log({ mnemonic, keypair, senderAddress });
     const mergedCoinId = await this.mergeCoinsForBalance(
       amount + DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER,
       keypair
     );
-    console.log(mergedCoinId);
     var data: TransferSuiTransaction = {
       suiObjectId: mergedCoinId,
       gasBudget: DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER,
@@ -202,7 +198,6 @@ export class WalletClient {
   }
 
   async airdrop(address: string) {
-    console.log(Network.DEVNET);
     return await this.provider.requestSuiFromFaucet(address);
   }
 
@@ -217,10 +212,8 @@ export class WalletClient {
 
     console.log({ coinsToMerge });
     if (coinsToMerge.length == 1) {
-      console.log('Single Coin Found');
       return getObjectId(coinsToMerge[0]);
     }
-    console.log('Merging Coins:');
     const signer = new RawSigner(keypair, this.provider, this.serializer);
 
     let primaryCoinRef = coinsToMerge[coinsToMerge.length - 1];
@@ -419,7 +412,6 @@ export class WalletClient {
 
     finalTransacationsData.sort((a, b) => a.timestamp_ms - b.timestamp_ms);
 
-    console.log({ finalTransacationsData });
     return finalTransacationsData;
   }
 
@@ -444,12 +436,12 @@ export class WalletClient {
   }
 
   async mintNfts(
-    mnemonic: string,
+    suiAccount: Ed25519Keypair,
     name?: string,
     description?: string,
     imageUrl?: string
   ) {
-    const keypair = WalletClient.fromDerivePath(mnemonic);
+    const keypair = suiAccount;
     const accountSigner = new RawSigner(
       keypair,
       this.provider,
@@ -464,8 +456,8 @@ export class WalletClient {
     return mintedNft;
   }
 
-  async transferNft(mnemonic: string, nftId: string, recipientID: string) {
-    const keypair = WalletClient.fromDerivePath(mnemonic);
+  async transferNft(suiAccount: Ed25519Keypair, nftId: string, recipientID: string) {
+    const keypair = suiAccount;
     const accountSigner = new RawSigner(
       keypair,
       this.provider,
