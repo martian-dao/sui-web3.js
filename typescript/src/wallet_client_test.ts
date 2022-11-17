@@ -1,8 +1,9 @@
 import { WalletClient } from './wallet_client';
 
-const samplePhrase = 'beach empower element bicycle wise pink aspect spirit clay always flush fold';
+const samplePhrase =
+  'beach empower element bicycle wise pink aspect spirit clay always flush fold';
 // const samplePhrase = 'fade isolate ensure attack ramp scheme demise minute gospel kid already foam';
-const apis = new WalletClient();
+const apis = new WalletClient('', '');
 
 // const newWallet = apis.createWallet();
 // newWallet.then(resp => console.log(resp));
@@ -22,11 +23,8 @@ const address = keypair.getPublicKey().toSuiAddress();
 const response = apis.getBalance(address);
 response.then((balance: any) => console.log(Number(balance)));
 
-
 // const signedMessage = apis.signMessage(samplePhrase, "Ishan");
 // signedMessage.then((resp) => console.log(resp));
-
-
 
 // console.log(keypair.getPublicKey());
 // const txResponse = apis.transferSuiMnemonic(20000000, samplePhrase, "91fb5e1d624d92540001fda8db6a75eeb1713b36");

@@ -17,8 +17,6 @@ import { Network } from './utils/api-endpoints';
 
 const COIN_TYPE = 784;
 const MAX_ACCOUNTS = 5;
-const DEV_NET_URL = 'https://fullnode.devnet.sui.io/';
-const FAUCET_URL = 'https://faucet.devnet.sui.io/gas';
 const DEFAULT_GAS_BUDGET_FOR_MERGE = 1000;
 const DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER = 1000;
 // const DEFAULT_GAS_BUDGET_FOR_SPLIT = 1000;
@@ -40,9 +38,9 @@ export class WalletClient {
   provider: JsonRpcProvider;
   serializer: RpcTxnDataSerializer;
 
-  constructor() {
-    this.provider = new JsonRpcProvider(DEV_NET_URL, { faucetURL: FAUCET_URL });
-    this.serializer = new RpcTxnDataSerializer(DEV_NET_URL);
+  constructor(nodeUrl: string, faucetUrl: string) {
+    this.provider = new JsonRpcProvider(nodeUrl, { faucetURL: faucetUrl });
+    this.serializer = new RpcTxnDataSerializer(nodeUrl);
   }
 
   /**
@@ -260,10 +258,11 @@ export class WalletClient {
 
   async getTransactions(address: SuiAddress) {
     const transactions = await this.provider.getTransactionsForAddress(address);
+    const uniqueTransactions = [...new Set(transactions)];
 
     const finalTransacationsData: any[] = [];
     await Promise.all(
-      transactions.map(async (digest: string) => {
+      uniqueTransactions.map(async (digest: string) => {
         const transactionData = await this.provider.getTransactionWithEffects(
           digest
         );
@@ -406,7 +405,7 @@ export class WalletClient {
       })
     );
 
-    finalTransacationsData.sort((a, b) => a.timestamp_ms - b.timestamp_ms);
+    finalTransacationsData.sort((a, b) => b.timestamp_ms - a.timestamp_ms);
 
     console.log({ finalTransacationsData });
     return finalTransacationsData;
@@ -428,7 +427,6 @@ export class WalletClient {
         nfts.push(objData);
       }
     }
-    console.log('NFTS');
     return nfts;
   }
 
@@ -462,5 +460,15 @@ export class WalletClient {
     );
     const mintedNft = ExampleNFT.TransferNFT(accountSigner, nftId, recipientID);
     return mintedNft;
+  }
+
+  static getAccountFromMetadata(mnemonic: string) {
+    const keypair: any = Ed25519Keypair.deriveKeypair(mnemonic);
+    const privateKey = new Ed25519Keypair(keypair).getSecretKey();
+    const address = keypair.getPublicKey().toSuiAddress();
+    const pubKey = Buffer.from(keypair.getPublicKey().toBytes()).toString(
+      'hex'
+    );
+    return { address, publicKey: pubKey, privateKey };
   }
 }
