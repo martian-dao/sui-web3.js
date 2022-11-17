@@ -1,7 +1,8 @@
 import * as bip39 from '@scure/bip39';
 import * as english from '@scure/bip39/wordlists/english';
 import { Ed25519Keypair } from './cryptography/ed25519-keypair';
-import { GetObjectDataResponse, ObjectOwner, SuiAddress } from './types';
+import { GetObjectDataResponse, SuiAddress } from './types';
+// import { GetObjectDataResponse, ObjectOwner, SuiAddress } from './types';
 import { JsonRpcProvider } from './providers/json-rpc-provider';
 import { Coin } from './types/framework';
 import { RpcTxnDataSerializer } from './signers/txn-data-serializers/rpc-txn-data-serializer';
@@ -230,35 +231,35 @@ export class WalletClient {
     return primaryId;
   }
 
-  async getEventsSender(
-    sender: SuiAddress,
-    count?: number,
-    startTime?: number,
-    endTime?: number
-  ) {
-    const resp = await this.provider.getEventsBySender(
-      sender,
-      count,
-      startTime,
-      endTime
-    );
-    return resp;
-  }
+  // async getEventsSender(
+  //   sender: SuiAddress,
+  //   count?: number,
+  //   startTime?: number,
+  //   endTime?: number
+  // ) {
+  //   const resp = await this.provider.getEventsBySender(
+  //     sender,
+  //     count,
+  //     startTime,
+  //     endTime
+  //   );
+  //   return resp;
+  // }
 
-  async getEventsRecipient(
-    recipient: ObjectOwner,
-    count?: number,
-    startTime?: number,
-    endTime?: number
-  ) {
-    const resp = await this.provider.getEventsByRecipient(
-      recipient,
-      count,
-      startTime,
-      endTime
-    );
-    return resp;
-  }
+  // async getEventsRecipient(
+  //   recipient: ObjectOwner,
+  //   count?: number,
+  //   startTime?: number,
+  //   endTime?: number
+  // ) {
+  //   const resp = await this.provider.getEventsByRecipient(
+  //     recipient,
+  //     count,
+  //     startTime,
+  //     endTime
+  //   );
+  //   return resp;
+  // }
 
   async getTransactions(address: SuiAddress) {
     const transactions = await this.provider.getTransactionsForAddress(address);
