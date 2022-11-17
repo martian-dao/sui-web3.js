@@ -8,6 +8,7 @@ import { Ed25519PublicKey } from './ed25519-publickey';
 import { SignatureScheme } from './publickey';
 import { isValidHardenedPath, mnemonicToSeedHex } from './mnemonics';
 import { derivePath, getPublicKey } from '../utils/ed25519-hd-key';
+import { toB64 } from '@mysten/bcs';
 
 export const DEFAULT_ED25519_DERIVATION_PATH = "m/44'/784'/0'/0'/0'";
 
@@ -107,6 +108,13 @@ export class Ed25519Keypair implements Keypair {
     return new Ed25519PublicKey(this.keypair.publicKey);
   }
 
+  /**
+   * The secret key for this Ed25519 keypair
+   */
+   getSecretKey(): string {
+    return toB64(this.keypair.secretKey);
+  }
+  
   /**
    * Return the signature for the provided data using Ed25519.
    */

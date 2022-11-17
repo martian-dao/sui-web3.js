@@ -3,7 +3,7 @@ import { WalletClient } from './wallet_client';
 const samplePhrase =
   'beach empower element bicycle wise pink aspect spirit clay always flush fold';
 // const samplePhrase = 'fade isolate ensure attack ramp scheme demise minute gospel kid already foam';
-const apis = new WalletClient('', '');
+const apis = new WalletClient();
 
 // const newWallet = apis.createWallet();
 // newWallet.then(resp => console.log(resp));
@@ -27,10 +27,10 @@ response.then((balance: any) => console.log(Number(balance)));
 // signedMessage.then((resp) => console.log(resp));
 
 // console.log(keypair.getPublicKey());
-// const txResponse = apis.transferSuiMnemonic(20000000, samplePhrase, "91fb5e1d624d92540001fda8db6a75eeb1713b36");
+// const txResponse = apis.transferSuiMnemonic(20000000, keypair, "0x6cb344f0ef388af4e1cf2321fb2a3a9db80c9113");
 // txResponse.then(tx => console.log(tx));
 
-// const mintNft = apis.mintNfts(samplePhrase, 'monkey-nft',
+// const mintNft = apis.mintNfts(keypair, 'monkey-nft',
 // 'testing purposes', 'https://uploads-ssl.webflow.com/5f9a1900790900e2b7f25ba1/62545162b2e07568b0110187_FEATURED_IMAGE-nfts-myths-misconceptions.png');
 // mintNft.then(nft => {
 //     console.log(nft);
@@ -59,11 +59,11 @@ response.then((balance: any) => console.log(Number(balance)));
 //     }
 // });
 
-// console.log("TRANSACTIONS");
-// const transactions = apis.getTransactions("6cb344f0ef388af4e1cf2321fb2a3a9db80c9113");
-// transactions.then(events => {
-//     for(let event of events){
-//         console.log(event);
-//         console.log(event.event);
-//     }
-// });
+console.log("TRANSACTIONS");
+const transactions = apis.getTransactions("cc2adf1e1de035c439f301860e582628a59744b7");
+transactions.then(events => {
+    for(let event of events){
+        console.log(event);
+        console.log(event.event);
+    }
+});
