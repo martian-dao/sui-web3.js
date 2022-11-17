@@ -1,8 +1,7 @@
 {
-  "name": "@martian/sui.js",
-  "author": "Martian Labs <build@mystenlabs.com>",
-  "description": "Sui TypeScript API(Work in Progress)",
-  "version": "0.15.2",
+  "name": "@martianwallet/sui-web3.js",
+  "description": "Web3 SDK For Sui",
+  "version": "0.0.1",
   "license": "Apache-2.0",
   "files": [
     "dist",
@@ -23,6 +22,7 @@
   },
   "scripts": {
     "clean": "rm -rf tsconfig.tsbuildinfo ./dist",
+    "publish_module": "npm run build && npm publish --public",
     "build": "node ./type_guards.mjs && pnpm build:types && tsup ./src/index.ts --format esm,cjs --sourcemap",
     "build.windows": "pnpm build:types && tsup ./src/index.ts --format esm,cjs --sourcemap",
     "build:types": "tsc --build",
@@ -46,9 +46,6 @@
     "semi": true,
     "singleQuote": true,
     "trailingComma": "es5"
-  },
-  "bugs": {
-    "url": "https://github.com/MystenLabs/sui/issues/new"
   },
   "publishConfig": {
     "access": "public"
