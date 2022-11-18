@@ -111,7 +111,7 @@ export class WalletClient {
       // if (Object.keys(response).length !== 0) {
       accountMetaData.push({
         derivationPath,
-        address,
+        address: address.startsWith('0x') ? address : '0x' + address,
         publicKey,
       });
       // NOTE: breaking because multiple address support is not available currently
@@ -160,7 +160,7 @@ export class WalletClient {
     );
     return {
       derivationPath,
-      address,
+      address: address.startsWith('0x') ? address : '0x' + address,
       publicKey: pubKey,
     };
   }
