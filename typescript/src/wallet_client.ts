@@ -107,6 +107,8 @@ export class WalletClient {
         address,
         publicKey,
       });
+      // NOTE: breaking because multiple address support is not available currently
+      break
       // } else {
       // break;
       // }
