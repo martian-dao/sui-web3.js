@@ -147,8 +147,9 @@ export class Ed25519Keypair implements Keypair {
     const privateKeyHex = Buffer.from(
       this.keypair.secretKey.slice(0, 32)
     ).toString('hex');
+    const address = this.getPublicKey().toSuiAddress();
     return {
-      address: this.getPublicKey().toSuiAddress(),
+      address: address.startsWith('0x') ? address : '0x' + address,
       publicKeyHex: publicKeyHex.startsWith('0x')
         ? publicKeyHex
         : '0x' + publicKeyHex,
