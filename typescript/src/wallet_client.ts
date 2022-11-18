@@ -9,9 +9,7 @@ import { getMoveObject, getObjectId, ObjectId } from './types/objects';
 import { RawSigner } from './signers/raw-signer';
 import { ExampleNFT } from './nft_client';
 import { Network, NETWORK_TO_API } from './utils/api-endpoints';
-import {
-  PaySuiTransaction,
-} from './signers/txn-data-serializers/txn-data-serializer';
+import { PaySuiTransaction } from './signers/txn-data-serializers/txn-data-serializer';
 import { DEFAULT_CLIENT_OPTIONS } from './rpc/websocket-client';
 
 const COIN_TYPE = 784;
@@ -36,11 +34,16 @@ export class WalletClient {
   provider: JsonRpcProvider;
   serializer: RpcTxnDataSerializer;
 
-  constructor(nodeUrl: string = endpoints.fullNode, faucetUrl: string = endpoints.faucet) {
-    this.provider = new JsonRpcProvider(nodeUrl, { skipDataValidation: true,
+  constructor(
+    nodeUrl: string = endpoints.fullNode,
+    faucetUrl: string = endpoints.faucet
+  ) {
+    this.provider = new JsonRpcProvider(nodeUrl, {
+      skipDataValidation: true,
       socketOptions: DEFAULT_CLIENT_OPTIONS,
       versionCacheTimoutInSeconds: 600,
-      faucetURL: faucetUrl });
+      faucetURL: faucetUrl,
+    });
     this.serializer = new RpcTxnDataSerializer(nodeUrl);
   }
 
@@ -112,7 +115,7 @@ export class WalletClient {
         publicKey,
       });
       // NOTE: breaking because multiple address support is not available currently
-      break
+      break;
       // } else {
       // break;
       // }
@@ -169,19 +172,20 @@ export class WalletClient {
   ) {
     const keypair = suiAccount;
     const senderAddress = keypair.getPublicKey().toSuiAddress();
-    const coinsNeeded = await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
-      senderAddress,
-      BigInt(amount + DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER)
-    );
-    const inputCoins:ObjectId[] = coinsNeeded.map((coin) => getObjectId(coin));
-    const recipients:SuiAddress[] = [receiverAddress];
-    const amounts:number[] = [amount];
-    const payTxn:PaySuiTransaction = {
+    const coinsNeeded =
+      await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
+        senderAddress,
+        BigInt(amount + DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER)
+      );
+    const inputCoins: ObjectId[] = coinsNeeded.map((coin) => getObjectId(coin));
+    const recipients: SuiAddress[] = [receiverAddress];
+    const amounts: number[] = [amount];
+    const payTxn: PaySuiTransaction = {
       inputCoins: inputCoins,
       recipients: recipients,
       amounts: amounts,
-      gasBudget: DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER
-    }
+      gasBudget: DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER,
+    };
     const signer = new RawSigner(keypair, this.provider, this.serializer);
     return await signer.paySui(payTxn);
   }
@@ -382,19 +386,21 @@ export class WalletClient {
   async getNfts(address: SuiAddress) {
     let objects = await this.provider.getObjectsOwnedByAddress(address);
     var nfts: GetObjectDataResponse[] = [];
-    for (let obj of objects) {
-      let objData = await this.provider.getObject(obj.objectId);
-      let moveObj = getMoveObject(objData);
-      if (
-        moveObj!.fields.name &&
-        moveObj!.fields.description &&
-        moveObj!.fields.url
-      ) {
-        nfts.push(objData);
-      } else if (moveObj!.fields.metadata) {
-        nfts.push(objData);
-      }
-    }
+    await Promise.all(
+      objects.map(async (obj) => {
+        let objData = await this.provider.getObject(obj.objectId);
+        let moveObj = getMoveObject(objData);
+        if (
+          moveObj!.fields.name &&
+          moveObj!.fields.description &&
+          moveObj!.fields.url
+        ) {
+          nfts.push(objData);
+        } else if (moveObj!.fields.metadata) {
+          nfts.push(objData);
+        }
+      })
+    );
     return nfts;
   }
 
@@ -419,7 +425,11 @@ export class WalletClient {
     return mintedNft;
   }
 
-  async transferNft(suiAccount: Ed25519Keypair, nftId: string, recipientID: string) {
+  async transferNft(
+    suiAccount: Ed25519Keypair,
+    nftId: string,
+    recipientID: string
+  ) {
     const keypair = suiAccount;
     const accountSigner = new RawSigner(
       keypair,
