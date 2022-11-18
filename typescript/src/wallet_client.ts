@@ -1,24 +1,22 @@
 import * as bip39 from '@scure/bip39';
 import * as english from '@scure/bip39/wordlists/english';
 import { Ed25519Keypair } from './cryptography/ed25519-keypair';
-import { GetObjectDataResponse, ObjectOwner, SuiAddress } from './types';
+import { GetObjectDataResponse, SuiAddress } from './types';
 import { JsonRpcProvider } from './providers/json-rpc-provider';
 import { Coin } from './types/framework';
 import { RpcTxnDataSerializer } from './signers/txn-data-serializers/rpc-txn-data-serializer';
-import { getMoveObject, getObjectId } from './types/objects';
+import { getMoveObject, getObjectId, ObjectId } from './types/objects';
 import { RawSigner } from './signers/raw-signer';
 import { ExampleNFT } from './nft_client';
-// import { Network } from "./utils/api-endpoints";
+import { Network, NETWORK_TO_API } from './utils/api-endpoints';
 import {
-  MergeCoinTransaction,
-  TransferSuiTransaction,
+  PaySuiTransaction,
 } from './signers/txn-data-serializers/txn-data-serializer';
 
 const COIN_TYPE = 784;
 const MAX_ACCOUNTS = 5;
-const DEFAULT_GAS_BUDGET_FOR_MERGE = 1000;
 const DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER = 1000;
-// const DEFAULT_GAS_BUDGET_FOR_SPLIT = 1000;
+const endpoints = NETWORK_TO_API[Network.DEVNET];
 
 const AIRDROP_SENDER = '0xc4173a804406a365e69dfb297d4eaaf002546ebd';
 
@@ -37,7 +35,7 @@ export class WalletClient {
   provider: JsonRpcProvider;
   serializer: RpcTxnDataSerializer;
 
-  constructor(nodeUrl: string, faucetUrl: string) {
+  constructor(nodeUrl: string = endpoints.fullNode, faucetUrl: string = endpoints.faucet) {
     this.provider = new JsonRpcProvider(nodeUrl, { faucetURL: faucetUrl });
     this.serializer = new RpcTxnDataSerializer(nodeUrl);
   }
@@ -165,100 +163,61 @@ export class WalletClient {
   ) {
     const keypair = suiAccount;
     const senderAddress = keypair.getPublicKey().toSuiAddress();
-    const mergedCoinId = await this.mergeCoinsForBalance(
-      amount + DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER,
-      keypair
+    const coinsNeeded = await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
+      senderAddress,
+      BigInt(amount + DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER)
     );
-    var data: TransferSuiTransaction = {
-      suiObjectId: mergedCoinId,
-      gasBudget: DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER,
-      recipient: receiverAddress,
-      amount: amount,
-    };
-    const unsignedTx = this.serializer.newTransferSui(senderAddress, data);
-    const signedTx = keypair.signData(await unsignedTx);
-    const response = await this.provider.executeTransaction(
-      (await unsignedTx).toString(),
-      'ED25519',
-      signedTx.toString(),
-      keypair.getPublicKey().toString()
-    );
-    return response;
+    const inputCoins:ObjectId[] = coinsNeeded.map((coin) => getObjectId(coin));
+    const recipients:SuiAddress[] = [receiverAddress];
+    const amounts:number[] = [amount];
+    const payTxn:PaySuiTransaction = {
+      inputCoins: inputCoins,
+      recipients: recipients,
+      amounts: amounts,
+      gasBudget: DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER
+    }
+    const signer = new RawSigner(keypair, this.provider, this.serializer);
+    return await signer.paySui(payTxn);
   }
 
   async getBalance(address: string) {
     let objects = await this.provider.getCoinBalancesOwnedByAddress(address);
-    let sum = BigInt(0);
-    for (let obj of objects) {
-      sum += Coin.getBalance(obj)!;
-    }
-    return sum;
+    return Coin.totalBalance(objects);
   }
 
   async airdrop(address: string) {
     return await this.provider.requestSuiFromFaucet(address);
   }
 
-  async mergeCoinsForBalance(amount: number, keypair: Ed25519Keypair) {
-    const address = keypair.getPublicKey().toSuiAddress();
-    //coins sorted in ascending order
-    const coinsToMerge =
-      await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
-        address,
-        BigInt(amount)
-      );
+  // async getEventsSender(
+  //   sender: SuiAddress,
+  //   count?: number,
+  //   startTime?: number,
+  //   endTime?: number
+  // ) {
+  //   const resp = await this.provider.getEvents(
+  //     {sender: sender},
+  //     count,
+  //     startTime,
+  //     endTime
+  //   );
+  //   return resp;
+  // }
 
-    console.log({ coinsToMerge });
-    if (coinsToMerge.length == 1) {
-      return getObjectId(coinsToMerge[0]);
-    }
-    const signer = new RawSigner(keypair, this.provider, this.serializer);
-
-    let primaryCoinRef = coinsToMerge[coinsToMerge.length - 1];
-    let primaryId = getObjectId(primaryCoinRef);
-
-    coinsToMerge.pop();
-    for (let coin of coinsToMerge) {
-      const coinId = getObjectId(coin);
-      const mergeTransact: MergeCoinTransaction = {
-        primaryCoin: primaryId,
-        coinToMerge: coinId,
-        gasBudget: DEFAULT_GAS_BUDGET_FOR_MERGE,
-      };
-      await signer.mergeCoin(mergeTransact);
-    }
-    return primaryId;
-  }
-
-  async getEventsSender(
-    sender: SuiAddress,
-    count?: number,
-    startTime?: number,
-    endTime?: number
-  ) {
-    const resp = await this.provider.getEventsBySender(
-      sender,
-      count,
-      startTime,
-      endTime
-    );
-    return resp;
-  }
-
-  async getEventsRecipient(
-    recipient: ObjectOwner,
-    count?: number,
-    startTime?: number,
-    endTime?: number
-  ) {
-    const resp = await this.provider.getEventsByRecipient(
-      recipient,
-      count,
-      startTime,
-      endTime
-    );
-    return resp;
-  }
+  // async getEventsRecipient(
+  //   recipient: ObjectOwner,
+  //   count?: number,
+  //   startTime?: number,
+  //   endTime?: number
+  // ) {
+  //   const resp = await this.provider.getEventsByRecipient(
+  //     recipient,
+  //     count,
+  //     startTime,
+  //     endTime
+  //   );
+  //   return resp;
+  // }
 
   async getTransactions(address: SuiAddress) {
     const transactions = await this.provider.getTransactionsForAddress(address);

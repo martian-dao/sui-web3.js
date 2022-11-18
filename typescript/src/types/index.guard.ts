@@ -38,7 +38,6 @@ export function isObjectOwner(obj: any, _argumentName?: string): obj is ObjectOw
                 typeof obj.Shared === "object" ||
                 typeof obj.Shared === "function") &&
             isSuiMoveTypeParameterIndex(obj.Shared.initial_shared_version) as boolean ||
-            obj === "Shared" ||
             obj === "Immutable")
     )
 }
@@ -109,9 +108,7 @@ export function isSuiMoveObject(obj: any, _argumentName?: string): obj is SuiMov
             typeof obj === "function") &&
         isTransactionDigest(obj.type) as boolean &&
         isObjectContentFields(obj.fields) as boolean &&
-        (typeof obj.has_public_transfer === "undefined" ||
-            obj.has_public_transfer === false ||
-            obj.has_public_transfer === true)
+        typeof obj.has_public_transfer === "boolean"
     )
 }
 
@@ -121,8 +118,7 @@ export function isCoinDenominationInfoResponse(obj: any, _argumentName?: string)
             typeof obj === "object" ||
             typeof obj === "function") &&
         isTransactionDigest(obj.coinType) as boolean &&
-        (typeof obj.basicUnit === "undefined" ||
-            isTransactionDigest(obj.basicUnit) as boolean) &&
+        isTransactionDigest(obj.basicUnit) as boolean &&
         isSuiMoveTypeParameterIndex(obj.decimalNumber) as boolean
     )
 }
@@ -427,10 +423,9 @@ export function isMoveEvent(obj: any, _argumentName?: string): obj is MoveEvent 
         isTransactionDigest(obj.transactionModule) as boolean &&
         isTransactionDigest(obj.sender) as boolean &&
         isTransactionDigest(obj.type) as boolean &&
-        (typeof obj.fields === "undefined" ||
-            (obj.fields !== null &&
-                typeof obj.fields === "object" ||
-                typeof obj.fields === "function")) &&
+        (obj.fields !== null &&
+            typeof obj.fields === "object" ||
+            typeof obj.fields === "function") &&
         isTransactionDigest(obj.bcs) as boolean
     )
 }
@@ -632,8 +627,7 @@ export function isPaginatedEvents(obj: any, _argumentName?: string): obj is Pagi
             typeof obj === "object" ||
             typeof obj === "function") &&
         isSuiEvents(obj.data) as boolean &&
-        (obj.nextCursor === null ||
-            isEventId(obj.nextCursor) as boolean)
+        isEventId(obj.nextCursor) as boolean
     )
 }
 
@@ -767,8 +761,7 @@ export function isSuiTransferSui(obj: any, _argumentName?: string): obj is SuiTr
             typeof obj === "object" ||
             typeof obj === "function") &&
         isTransactionDigest(obj.recipient) as boolean &&
-        (obj.amount === null ||
-            isSuiMoveTypeParameterIndex(obj.amount) as boolean)
+        isSuiMoveTypeParameterIndex(obj.amount) as boolean
     )
 }
 
@@ -972,8 +965,7 @@ export function isExecutionStatus(obj: any, _argumentName?: string): obj is Exec
             typeof obj === "object" ||
             typeof obj === "function") &&
         isExecutionStatusType(obj.status) as boolean &&
-        (typeof obj.error === "undefined" ||
-            isTransactionDigest(obj.error) as boolean)
+        isTransactionDigest(obj.error) as boolean
     )
 }
 
@@ -994,45 +986,37 @@ export function isTransactionEffects(obj: any, _argumentName?: string): obj is T
             typeof obj === "function") &&
         isExecutionStatus(obj.status) as boolean &&
         isGasCostSummary(obj.gasUsed) as boolean &&
-        (typeof obj.sharedObjects === "undefined" ||
-            Array.isArray(obj.sharedObjects) &&
-            obj.sharedObjects.every((e: any) =>
-                isSuiObjectRef(e) as boolean
-            )) &&
+        Array.isArray(obj.sharedObjects) &&
+        obj.sharedObjects.every((e: any) =>
+            isSuiObjectRef(e) as boolean
+        ) &&
         isTransactionDigest(obj.transactionDigest) as boolean &&
-        (typeof obj.created === "undefined" ||
-            Array.isArray(obj.created) &&
-            obj.created.every((e: any) =>
-                isOwnedObjectRef(e) as boolean
-            )) &&
-        (typeof obj.mutated === "undefined" ||
-            Array.isArray(obj.mutated) &&
-            obj.mutated.every((e: any) =>
-                isOwnedObjectRef(e) as boolean
-            )) &&
-        (typeof obj.unwrapped === "undefined" ||
-            Array.isArray(obj.unwrapped) &&
-            obj.unwrapped.every((e: any) =>
-                isOwnedObjectRef(e) as boolean
-            )) &&
-        (typeof obj.deleted === "undefined" ||
-            Array.isArray(obj.deleted) &&
-            obj.deleted.every((e: any) =>
-                isSuiObjectRef(e) as boolean
-            )) &&
-        (typeof obj.wrapped === "undefined" ||
-            Array.isArray(obj.wrapped) &&
-            obj.wrapped.every((e: any) =>
-                isSuiObjectRef(e) as boolean
-            )) &&
+        Array.isArray(obj.created) &&
+        obj.created.every((e: any) =>
+            isOwnedObjectRef(e) as boolean
+        ) &&
+        Array.isArray(obj.mutated) &&
+        obj.mutated.every((e: any) =>
+            isOwnedObjectRef(e) as boolean
+        ) &&
+        Array.isArray(obj.unwrapped) &&
+        obj.unwrapped.every((e: any) =>
+            isOwnedObjectRef(e) as boolean
+        ) &&
+        Array.isArray(obj.deleted) &&
+        obj.deleted.every((e: any) =>
+            isSuiObjectRef(e) as boolean
+        ) &&
+        Array.isArray(obj.wrapped) &&
+        obj.wrapped.every((e: any) =>
+            isSuiObjectRef(e) as boolean
+        ) &&
         isOwnedObjectRef(obj.gasObject) as boolean &&
-        (typeof obj.events === "undefined" ||
-            Array.isArray(obj.events)) &&
-        (typeof obj.dependencies === "undefined" ||
-            Array.isArray(obj.dependencies) &&
-            obj.dependencies.every((e: any) =>
-                isTransactionDigest(e) as boolean
-            ))
+        Array.isArray(obj.events) &&
+        Array.isArray(obj.dependencies) &&
+        obj.dependencies.every((e: any) =>
+            isTransactionDigest(e) as boolean
+        )
     )
 }
 
@@ -1043,21 +1027,8 @@ export function isSuiTransactionResponse(obj: any, _argumentName?: string): obj 
             typeof obj === "function") &&
         isCertifiedTransaction(obj.certificate) as boolean &&
         isTransactionEffects(obj.effects) as boolean &&
-        (obj.timestamp_ms === null ||
-            isSuiMoveTypeParameterIndex(obj.timestamp_ms) as boolean) &&
-        (obj.parsed_data === null ||
-            (obj.parsed_data !== null &&
-                typeof obj.parsed_data === "object" ||
-                typeof obj.parsed_data === "function") &&
-            isSuiParsedSplitCoinResponse(obj.parsed_data.SplitCoin) as boolean ||
-            (obj.parsed_data !== null &&
-                typeof obj.parsed_data === "object" ||
-                typeof obj.parsed_data === "function") &&
-            isSuiParsedMergeCoinResponse(obj.parsed_data.MergeCoin) as boolean ||
-            (obj.parsed_data !== null &&
-                typeof obj.parsed_data === "object" ||
-                typeof obj.parsed_data === "function") &&
-            isSuiParsedPublishResponse(obj.parsed_data.Publish) as boolean)
+        isSuiMoveTypeParameterIndex(obj.timestamp_ms) as boolean &&
+        isSuiParsedTransactionResponse(obj.parsed_data) as boolean
     )
 }
 
@@ -1121,8 +1092,7 @@ export function isPaginatedTransactionDigests(obj: any, _argumentName?: string):
         obj.data.every((e: any) =>
             isTransactionDigest(e) as boolean
         ) &&
-        (obj.nextCursor === null ||
-            isTransactionDigest(obj.nextCursor) as boolean)
+        isTransactionDigest(obj.nextCursor) as boolean
     )
 }
 
@@ -1136,10 +1106,8 @@ export function isTransactionQuery(obj: any, _argumentName?: string): obj is Tra
                 typeof obj.MoveFunction === "object" ||
                 typeof obj.MoveFunction === "function") &&
             isTransactionDigest(obj.MoveFunction.package) as boolean &&
-            (obj.MoveFunction.module === null ||
-                isTransactionDigest(obj.MoveFunction.module) as boolean) &&
-            (obj.MoveFunction.function === null ||
-                isTransactionDigest(obj.MoveFunction.function) as boolean) ||
+            isTransactionDigest(obj.MoveFunction.module) as boolean &&
+            isTransactionDigest(obj.MoveFunction.function) as boolean ||
             (obj !== null &&
                 typeof obj === "object" ||
                 typeof obj === "function") &&
@@ -1167,16 +1135,14 @@ export function isMoveCall(obj: any, _argumentName?: string): obj is MoveCall {
         isSuiObjectRef(obj.package) as boolean &&
         isTransactionDigest(obj.module) as boolean &&
         isTransactionDigest(obj.function) as boolean &&
-        (typeof obj.typeArguments === "undefined" ||
-            Array.isArray(obj.typeArguments) &&
-            obj.typeArguments.every((e: any) =>
-                isTransactionDigest(e) as boolean
-            )) &&
-        (typeof obj.arguments === "undefined" ||
-            Array.isArray(obj.arguments) &&
-            obj.arguments.every((e: any) =>
-                isSuiJsonValue(e) as boolean
-            ))
+        Array.isArray(obj.typeArguments) &&
+        obj.typeArguments.every((e: any) =>
+            isTransactionDigest(e) as boolean
+        ) &&
+        Array.isArray(obj.arguments) &&
+        obj.arguments.every((e: any) =>
+            isSuiJsonValue(e) as boolean
+        )
     )
 }
 
@@ -1484,11 +1450,7 @@ export function isObjectArg(obj: any, _argumentName?: string): obj is ObjectArg 
             (obj !== null &&
                 typeof obj === "object" ||
                 typeof obj === "function") &&
-            isSharedObjectRef(obj.Shared) as boolean ||
-            (obj !== null &&
-                typeof obj === "object" ||
-                typeof obj === "function") &&
-            isTransactionDigest(obj.Shared_Deprecated) as boolean)
+            isSharedObjectRef(obj.Shared) as boolean)
     )
 }
 
@@ -1634,8 +1596,7 @@ export function isTransactionData(obj: any, _argumentName?: string): obj is Tran
         (obj !== null &&
             typeof obj === "object" ||
             typeof obj === "function") &&
-        (typeof obj.sender === "undefined" ||
-            isTransactionDigest(obj.sender) as boolean) &&
+        isTransactionDigest(obj.sender) as boolean &&
         isSuiMoveTypeParameterIndex(obj.gasBudget) as boolean &&
         isSuiMoveTypeParameterIndex(obj.gasPrice) as boolean &&
         isTransactionKind(obj.kind) as boolean &&
@@ -1671,7 +1632,6 @@ export function isFaucetResponse(obj: any, _argumentName?: string): obj is Fauce
             typeof obj === "object" ||
             typeof obj === "function") &&
         isFaucetCoinInfo(obj.transferred_gas_objects) as boolean &&
-        (obj.error === null ||
-            isTransactionDigest(obj.error) as boolean)
+        isTransactionDigest(obj.error) as boolean
     )
 }
