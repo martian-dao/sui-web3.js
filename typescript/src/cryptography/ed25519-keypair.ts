@@ -110,16 +110,14 @@ export class Ed25519Keypair implements Keypair {
    * The public key for this Ed25519 keypair
    */
   getPublicKey(): Ed25519PublicKey {
-    const publicKey: any = new Ed25519PublicKey(this.keypair.publicKey);
-    return publicKey.startsWith('0x') ? publicKey : '0x' + publicKey;
+    return new Ed25519PublicKey(this.keypair.publicKey);
   }
 
   /**
    * The secret key for this Ed25519 keypair
    */
   getSecretKey(): string {
-    const secretKey: any = toB64(this.keypair.secretKey);
-    return secretKey.startsWith('0x') ? secretKey : '0x' + secretKey;
+    return toB64(this.keypair.secretKey);
   }
 
   /**
@@ -143,12 +141,20 @@ export class Ed25519Keypair implements Keypair {
    * @returns publicKey, address and privateKey
    */
   toPrivateKeyObject(): object {
+    const publicKeyHex = Buffer.from(this.getPublicKey().toBytes()).toString(
+      'hex'
+    );
+    const privateKeyHex = Buffer.from(
+      this.keypair.secretKey.slice(0, 32)
+    ).toString('hex');
     return {
       address: this.getPublicKey().toSuiAddress(),
-      publicKeyHex: Buffer.from(this.getPublicKey().toBytes()).toString('hex'),
-      privateKeyHex: Buffer.from(this.keypair.secretKey.slice(0, 32)).toString(
-        'hex'
-      ),
+      publicKeyHex: publicKeyHex.startsWith('0x')
+        ? publicKeyHex
+        : '0x' + publicKeyHex,
+      privateKeyHex: privateKeyHex.startsWith('0x')
+        ? privateKeyHex
+        : '0x' + privateKeyHex,
     };
   }
   /**
