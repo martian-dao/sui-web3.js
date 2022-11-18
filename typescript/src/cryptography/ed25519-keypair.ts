@@ -65,16 +65,21 @@ export class Ed25519Keypair implements Keypair {
    * @param secretKey secret key byte array
    * @param options: skip secret key validation
    */
-  static fromSecretKey(secretKey: Uint8Array, options?: { skipValidation?: boolean }): Ed25519Keypair {
+  static fromSecretKey(
+    secretKey: Uint8Array,
+    options?: { skipValidation?: boolean }
+  ): Ed25519Keypair {
     const secretKeyLength = secretKey.length;
     if (secretKeyLength != 64) {
       // Many users actually wanted to invoke fromSeed(seed: Uint8Array), especially when reading from keystore.
       if (secretKeyLength == 32) {
         throw new Error(
-            'Wrong secretKey size. Expected 64 bytes, got 32. Similar function exists: fromSeed(seed: Uint8Array)'
+          'Wrong secretKey size. Expected 64 bytes, got 32. Similar function exists: fromSeed(seed: Uint8Array)'
         );
       }
-      throw new Error(`Wrong secretKey size. Expected 64 bytes, got ${secretKeyLength}.`);
+      throw new Error(
+        `Wrong secretKey size. Expected 64 bytes, got ${secretKeyLength}.`
+      );
     }
     const keypair = nacl.sign.keyPair.fromSecretKey(secretKey);
     if (!options || !options.skipValidation) {
@@ -111,10 +116,10 @@ export class Ed25519Keypair implements Keypair {
   /**
    * The secret key for this Ed25519 keypair
    */
-   getSecretKey(): string {
+  getSecretKey(): string {
     return toB64(this.keypair.secretKey);
   }
-  
+
   /**
    * Return the signature for the provided data using Ed25519.
    */
@@ -125,9 +130,9 @@ export class Ed25519Keypair implements Keypair {
   }
 
   /**
-  * Return the signature for the provided data using Ed25519.
-  */
-   signBuffer(data: Uint8Array): Uint8Array {
+   * Return the signature for the provided data using Ed25519.
+   */
+  signBuffer(data: Uint8Array): Uint8Array {
     return nacl.sign.detached(data, this.keypair.secretKey);
   }
 
@@ -136,14 +141,21 @@ export class Ed25519Keypair implements Keypair {
    * @returns publicKey, address and privateKey
    */
   toPrivateKeyObject(): object {
+    const publicKeyHex = Buffer.from(this.getPublicKey().toBytes()).toString(
+      'hex'
+    );
+    const privateKeyHex = Buffer.from(
+      this.keypair.secretKey.slice(0, 32)
+    ).toString('hex');
+    const address = this.getPublicKey().toSuiAddress();
     return {
-      address: this.getPublicKey().toSuiAddress(),
-      publicKeyHex: Buffer.from(this.getPublicKey().toBytes()).toString(
-        'hex'
-      ),
-      privateKeyHex: Buffer.from(this.keypair.secretKey.slice(0, 32)).toString(
-        'hex'
-      ),
+      address: address.startsWith('0x') ? address : '0x' + address,
+      publicKeyHex: publicKeyHex.startsWith('0x')
+        ? publicKeyHex
+        : '0x' + publicKeyHex,
+      privateKeyHex: privateKeyHex.startsWith('0x')
+        ? privateKeyHex
+        : '0x' + privateKeyHex,
     };
   }
   /**
