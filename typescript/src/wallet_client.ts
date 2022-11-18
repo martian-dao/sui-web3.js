@@ -35,8 +35,8 @@ export class WalletClient {
   provider: JsonRpcProvider;
   serializer: RpcTxnDataSerializer;
 
-  constructor(nodeUrl: string = endpoints.fullNode) {
-    this.provider = new JsonRpcProvider();
+  constructor(nodeUrl: string = endpoints.fullNode, faucetUrl: string = endpoints.faucet) {
+    this.provider = new JsonRpcProvider(nodeUrl, { faucetURL: faucetUrl });
     this.serializer = new RpcTxnDataSerializer(nodeUrl);
   }
 
