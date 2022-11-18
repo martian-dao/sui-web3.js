@@ -68,10 +68,10 @@ response.then((balance: any) => console.log(Number(balance)));
 //     }
 // });
 
-test("verify create wallet", async () => {
-  const alice = await apis.createWallet();
-  const aliceAccount = await WalletClient.getAccountFromMetadata(
-    alice.code,
-  );
-  console.log(aliceAccount.toPrivateKeyObject())
-});
+// test("verify create wallet", async () => {
+//   const alice = await apis.createWallet();
+//   const aliceAccount = await WalletClient.getAccountFromMetadata(
+//     alice.code,
+//   );
+//   console.log(aliceAccount.toPrivateKeyObject())
+// });
