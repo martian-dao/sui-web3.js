@@ -2,7 +2,6 @@ import * as bip39 from '@scure/bip39';
 import * as english from '@scure/bip39/wordlists/english';
 import { Ed25519Keypair } from './cryptography/ed25519-keypair';
 import { GetObjectDataResponse, SuiAddress } from './types';
-// import { GetObjectDataResponse, ObjectOwner, SuiAddress } from './types';
 import { JsonRpcProvider } from './providers/json-rpc-provider';
 import { Coin } from './types/framework';
 import { RpcTxnDataSerializer } from './signers/txn-data-serializers/rpc-txn-data-serializer';
@@ -10,7 +9,6 @@ import { getMoveObject, getObjectId, ObjectId } from './types/objects';
 import { RawSigner } from './signers/raw-signer';
 import { ExampleNFT } from './nft_client';
 import { Network, NETWORK_TO_API } from './utils/api-endpoints';
-// import { Network } from "./utils/api-endpoints";
 import {
   PaySuiTransaction,
 } from './signers/txn-data-serializers/txn-data-serializer';
@@ -19,7 +17,6 @@ const COIN_TYPE = 784;
 const MAX_ACCOUNTS = 5;
 const DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER = 1000;
 const endpoints = NETWORK_TO_API[Network.DEVNET];
-// const DEFAULT_GAS_BUDGET_FOR_SPLIT = 1000;
 
 const AIRDROP_SENDER = '0xc4173a804406a365e69dfb297d4eaaf002546ebd';
 
