@@ -65,16 +65,21 @@ export class Ed25519Keypair implements Keypair {
    * @param secretKey secret key byte array
    * @param options: skip secret key validation
    */
-  static fromSecretKey(secretKey: Uint8Array, options?: { skipValidation?: boolean }): Ed25519Keypair {
+  static fromSecretKey(
+    secretKey: Uint8Array,
+    options?: { skipValidation?: boolean }
+  ): Ed25519Keypair {
     const secretKeyLength = secretKey.length;
     if (secretKeyLength != 64) {
       // Many users actually wanted to invoke fromSeed(seed: Uint8Array), especially when reading from keystore.
       if (secretKeyLength == 32) {
         throw new Error(
-            'Wrong secretKey size. Expected 64 bytes, got 32. Similar function exists: fromSeed(seed: Uint8Array)'
+          'Wrong secretKey size. Expected 64 bytes, got 32. Similar function exists: fromSeed(seed: Uint8Array)'
         );
       }
-      throw new Error(`Wrong secretKey size. Expected 64 bytes, got ${secretKeyLength}.`);
+      throw new Error(
+        `Wrong secretKey size. Expected 64 bytes, got ${secretKeyLength}.`
+      );
     }
     const keypair = nacl.sign.keyPair.fromSecretKey(secretKey);
     if (!options || !options.skipValidation) {
@@ -105,16 +110,18 @@ export class Ed25519Keypair implements Keypair {
    * The public key for this Ed25519 keypair
    */
   getPublicKey(): Ed25519PublicKey {
-    return new Ed25519PublicKey(this.keypair.publicKey);
+    const publicKey: any = new Ed25519PublicKey(this.keypair.publicKey);
+    return publicKey.startsWith('0x') ? publicKey : '0x' + publicKey;
   }
 
   /**
    * The secret key for this Ed25519 keypair
    */
-   getSecretKey(): string {
-    return toB64(this.keypair.secretKey);
+  getSecretKey(): string {
+    const secretKey: any = toB64(this.keypair.secretKey);
+    return secretKey.startsWith('0x') ? secretKey : '0x' + secretKey;
   }
-  
+
   /**
    * Return the signature for the provided data using Ed25519.
    */
@@ -125,9 +132,9 @@ export class Ed25519Keypair implements Keypair {
   }
 
   /**
-  * Return the signature for the provided data using Ed25519.
-  */
-   signBuffer(data: Uint8Array): Uint8Array {
+   * Return the signature for the provided data using Ed25519.
+   */
+  signBuffer(data: Uint8Array): Uint8Array {
     return nacl.sign.detached(data, this.keypair.secretKey);
   }
 
@@ -138,9 +145,7 @@ export class Ed25519Keypair implements Keypair {
   toPrivateKeyObject(): object {
     return {
       address: this.getPublicKey().toSuiAddress(),
-      publicKeyHex: Buffer.from(this.getPublicKey().toBytes()).toString(
-        'hex'
-      ),
+      publicKeyHex: Buffer.from(this.getPublicKey().toBytes()).toString('hex'),
       privateKeyHex: Buffer.from(this.keypair.secretKey.slice(0, 32)).toString(
         'hex'
       ),
