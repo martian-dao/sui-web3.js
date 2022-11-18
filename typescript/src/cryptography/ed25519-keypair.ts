@@ -132,9 +132,9 @@ export class Ed25519Keypair implements Keypair {
   }
 
   /**
- * Derives account address, public key and private key
- * @returns publicKey, address and privateKey
- */
+   * Derives account address, public key and private key
+   * @returns publicKey, address and privateKey
+   */
   toPrivateKeyObject(): object {
     return {
       address: this.getPublicKey().toSuiAddress(),
@@ -146,7 +146,6 @@ export class Ed25519Keypair implements Keypair {
       ),
     };
   }
-  
   /**
    * Derive Ed25519 keypair from mnemonics and path. The mnemonics must be normalized
    * and validated against the english wordlist.

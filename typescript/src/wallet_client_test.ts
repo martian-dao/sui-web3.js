@@ -59,11 +59,19 @@ response.then((balance: any) => console.log(Number(balance)));
 //     }
 // });
 
-console.log("TRANSACTIONS");
-const transactions = apis.getTransactions("cc2adf1e1de035c439f301860e582628a59744b7");
-transactions.then(events => {
-    for(let event of events){
-        console.log(event);
-        console.log(event.event);
-    }
+// console.log("TRANSACTIONS");
+// const transactions = apis.getTransactions("cc2adf1e1de035c439f301860e582628a59744b7");
+// transactions.then(events => {
+//     for(let event of events){
+//         console.log(event);
+//         console.log(event.event);
+//     }
+// });
+
+test("verify create wallet", async () => {
+  const alice = await apis.createWallet();
+  const aliceAccount = await WalletClient.getAccountFromMetadata(
+    alice.code,
+  );
+  console.log(aliceAccount.toPrivateKeyObject())
 });
