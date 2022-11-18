@@ -29,7 +29,7 @@ function verifySignature(message, signature, publicKey) {
 
 test("verify create wallet", async () => {
   const alice = await apis.createWallet();
-  const aliceAccount = await WalletClient.getAccountFromMetadata(
+  const aliceAccount = await WalletClient.getAccountFromMetaData(
     alice.code,
   );
   console.log(aliceAccount.toPrivateKeyObject())
