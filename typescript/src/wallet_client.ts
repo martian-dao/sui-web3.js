@@ -12,6 +12,7 @@ import { Network, NETWORK_TO_API } from './utils/api-endpoints';
 import {
   PaySuiTransaction,
 } from './signers/txn-data-serializers/txn-data-serializer';
+import { DEFAULT_CLIENT_OPTIONS } from './rpc/websocket-client';
 
 const COIN_TYPE = 784;
 const MAX_ACCOUNTS = 5;
@@ -36,7 +37,10 @@ export class WalletClient {
   serializer: RpcTxnDataSerializer;
 
   constructor(nodeUrl: string = endpoints.fullNode, faucetUrl: string = endpoints.faucet) {
-    this.provider = new JsonRpcProvider(nodeUrl, { faucetURL: faucetUrl });
+    this.provider = new JsonRpcProvider(nodeUrl, { skipDataValidation: true,
+      socketOptions: DEFAULT_CLIENT_OPTIONS,
+      versionCacheTimoutInSeconds: 600,
+      faucetURL: faucetUrl });
     this.serializer = new RpcTxnDataSerializer(nodeUrl);
   }
 
