@@ -123,7 +123,7 @@ export class WalletClient {
    *
    * @returns A wallet object
    */
-  async createWallet(code: string): Promise<Wallet> {
+  async createWallet(code?: string): Promise<Wallet> {
     if (!code) {
       // mnemonic
       code = bip39.generateMnemonic(english.wordlist);
@@ -465,13 +465,8 @@ export class WalletClient {
     return mintedNft;
   }
 
-  static getAccountFromMetadata(mnemonic: string) {
+  static getAccountFromMetadata(mnemonic: string, _metadata?: object) {
     const keypair: any = Ed25519Keypair.deriveKeypair(mnemonic);
-    const privateKey = new Ed25519Keypair(keypair).getSecretKey();
-    const address = keypair.getPublicKey().toSuiAddress();
-    const pubKey = Buffer.from(keypair.getPublicKey().toBytes()).toString(
-      'hex'
-    );
-    return { address, publicKey: pubKey, privateKey };
+    return keypair;
   }
 }
