@@ -430,7 +430,7 @@ export class WalletClient {
     return mintedNft;
   }
 
-  static getAccountFromMetadata(mnemonic: string, _metadata?: object) {
+  static getAccountFromMetaData(mnemonic: string, _metadata?: object) {
     const keypair: any = Ed25519Keypair.deriveKeypair(mnemonic);
     return keypair;
   }
