@@ -191,7 +191,7 @@ export class WalletClient {
   }
 
   async getBalance(address: string) {
-    let objects = await this.provider.getCoinBalancesOwnedByAddress(address);
+    let objects = await this.provider.getCoinBalancesOwnedByAddress(address, '0x2::sui::SUI');
     return Coin.totalBalance(objects);
   }
 
