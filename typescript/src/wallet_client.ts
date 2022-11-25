@@ -5,7 +5,7 @@ import { GetObjectDataResponse, SuiAddress } from './types';
 import { JsonRpcProvider } from './providers/json-rpc-provider';
 import { Coin } from './types/framework';
 import { RpcTxnDataSerializer } from './signers/txn-data-serializers/rpc-txn-data-serializer';
-import { getMoveObject, getObjectId, ObjectId } from './types/objects';
+import { getMoveObject, getObjectId, ObjectId, SuiObjectInfo } from './types/objects';
 import { RawSigner } from './signers/raw-signer';
 import { ExampleNFT } from './nft_client';
 import { Network, NETWORK_TO_API } from './utils/api-endpoints';
@@ -197,6 +197,16 @@ export class WalletClient {
 
   async airdrop(address: string) {
     return await this.provider.requestSuiFromFaucet(address);
+  }
+
+  async getTokens(address: string) {
+    const objects = await this.provider.getCoinBalancesOwnedByAddress(address);
+    const coinIds = objects
+      .map(c => ({Id: Coin.getID(c),
+        coinType: Coin.getCoinSymbol(Coin.getCoinTypeArg(c)),
+        balance: Number(Coin.getBalance(c)),
+        decimal: 9}));
+    return coinIds;
   }
 
   // async getEventsSender(
