@@ -211,9 +211,10 @@ export class WalletClient {
     const objects = await this.provider.getCoinBalancesOwnedByAddress(address);
     const coinIds = objects.map((c) => ({
       Id: Coin.getID(c),
-      coinType: Coin.getCoinSymbol(Coin.getCoinTypeArg(c)),
+      symbol: Coin.getCoinSymbol(Coin.getCoinTypeArg(c)),
+      name: Coin.getCoinSymbol(Coin.getCoinTypeArg(c)),
       balance: Number(Coin.getBalance(c)),
-      decimal: 9,
+      decimals: 9,
     }));
     return coinIds;
   }
