@@ -1,7 +1,7 @@
 import * as bip39 from '@scure/bip39';
 import * as english from '@scure/bip39/wordlists/english';
 import { Ed25519Keypair } from './cryptography/ed25519-keypair';
-import { GetObjectDataResponse, SuiAddress } from './types';
+import { GetObjectDataResponse, SuiAddress, TransactionEffects } from './types';
 import { JsonRpcProvider } from './providers/json-rpc-provider';
 import { Coin } from './types/framework';
 import { RpcTxnDataSerializer } from './signers/txn-data-serializers/rpc-txn-data-serializer';
@@ -14,8 +14,9 @@ import {
 import { RawSigner } from './signers/raw-signer';
 import { ExampleNFT } from './nft_client';
 import { Network, NETWORK_TO_API } from './utils/api-endpoints';
-import { PaySuiTransaction } from './signers/txn-data-serializers/txn-data-serializer';
+import { PaySuiTransaction, SignableTransaction, UnserializedSignableTransaction } from './signers/txn-data-serializers/txn-data-serializer';
 import { DEFAULT_CLIENT_OPTIONS } from './rpc/websocket-client';
+import { Base64DataBuffer } from './serialization/base64';
 
 const COIN_TYPE = 784;
 const MAX_ACCOUNTS = 5;
@@ -219,35 +220,58 @@ export class WalletClient {
     return coinIds;
   }
 
-  // async getEventsSender(
-  //   sender: SuiAddress,
-  //   count?: number,
-  //   startTime?: number,
-  //   endTime?: number
-  // ) {
-  //   const resp = await this.provider.getEvents(
-  //     {sender: sender},
-  //     count,
-  //     startTime,
-  //     endTime
-  //   );
-  //   return resp;
-  // }
+  async generateTransaction(address: SuiAddress, tx: SignableTransaction | string | Base64DataBuffer): Promise<Base64DataBuffer>{
+    let dryRunTxBytes: string;
+    if (typeof tx === 'string') {
+      dryRunTxBytes = tx;
+    } else if (tx instanceof Base64DataBuffer){
+      dryRunTxBytes = tx.toString();
+    }else{
+      switch (tx.kind) {
+        case 'bytes':
+          dryRunTxBytes = new Base64DataBuffer(tx.data).toString();
+          break;
+        case 'mergeCoin':
+          dryRunTxBytes = (await this.serializer.newMergeCoin(address, tx.data)).toString();
+          break;
+        case 'moveCall':
+          dryRunTxBytes = (await this.serializer.newMoveCall(address, tx.data)).toString();
+          break;
+        case 'pay':
+          dryRunTxBytes = (await this.serializer.newPay(address, tx.data)).toString();
+          break;
+        case 'payAllSui':
+          dryRunTxBytes = (await this.serializer.newPayAllSui(address, tx.data)).toString();
+          break;
+        case 'paySui':
+          dryRunTxBytes = (await this.serializer.newPaySui(address, tx.data)).toString();
+          break;
+        case 'publish':
+          dryRunTxBytes = (await this.serializer.newPublish(address, tx.data)).toString();
+          break;
+        case 'splitCoin':
+          dryRunTxBytes = (await this.serializer.newSplitCoin(address, tx.data)).toString();
+          break;
+        case 'transferObject':
+          dryRunTxBytes = (await this.serializer.newTransferObject(address, tx.data)).toString();
+          break;
+        case 'transferSui':
+          dryRunTxBytes = (await this.serializer.newTransferSui(address, tx.data)).toString();
+          break;
+        default:
+          throw new Error(`Error, unknown transaction kind ${(tx as any).kind}. Can't dry run transaction.`);
+      }
+    }
+    if(typeof dryRunTxBytes === 'string'){
+      return new Base64DataBuffer(dryRunTxBytes);
+    }
+    return dryRunTxBytes;
+  }
 
-  // async getEventsRecipient(
-  //   recipient: ObjectOwner,
-  //   count?: number,
-  //   startTime?: number,
-  //   endTime?: number
-  // ) {
-  //   const resp = await this.provider.getEventsByRecipient(
-  //     recipient,
-  //     count,
-  //     startTime,
-  //     endTime
-  //   );
-  //   return resp;
-  // }
+  async simulateTransaction(suiAccount: Ed25519Keypair, tx: SignableTransaction | string | Base64DataBuffer): Promise<TransactionEffects> {
+    const signer = new RawSigner(suiAccount, this.provider, this.serializer);
+    return await signer.dryRunTransaction(tx);
+  }
 
   async getTransactions(address: SuiAddress) {
     const transactions = await this.provider.getTransactionsForAddress(address);
