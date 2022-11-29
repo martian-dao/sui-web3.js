@@ -197,7 +197,6 @@ export class WalletClient {
       gasBudget: DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER,
     };
 
-    console.log({ payTxn });
     const signer = new RawSigner(keypair, this.provider, this.serializer);
     return await signer.paySui(payTxn);
   }
