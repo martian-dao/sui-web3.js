@@ -208,6 +208,16 @@ export class WalletClient {
     return await this.provider.requestSuiFromFaucet(address);
   }
 
+  async getCoinsWithRequiredBalance(address: string, amount: number) {
+    const coinsNeeded =
+      await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
+        address,
+        BigInt(amount + DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER)
+      );
+    const coins: ObjectId[] = coinsNeeded.map((coin) => getObjectId(coin));
+    return coins;
+  }
+
   async getCustomCoins(address: string) {
     const objects = await this.provider.getCoinBalancesOwnedByAddress(address);
     const coinIds = objects.map((c) => ({
