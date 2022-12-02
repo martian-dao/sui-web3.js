@@ -179,25 +179,45 @@ export class WalletClient {
   ) {
     const keypair = suiAccount;
     const senderAddress = keypair.getPublicKey().toSuiAddress();
-    const coinsNeeded =
+    if(typeArg === SUI_TYPE_ARG){
+      const coinsNeeded =
+      await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
+        senderAddress,
+        BigInt(amount + DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER),
+        typeArg
+      );
+      const inputCoins: ObjectId[] = coinsNeeded.map((coin) => getObjectId(coin));
+      const recipients: SuiAddress[] = [receiverAddress];
+      const amounts: number[] = [amount];
+      const payTxn: PayTransaction = {
+        inputCoins: inputCoins,
+        recipients: recipients,
+        amounts: amounts,
+        gasBudget: DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER,
+      };
+      const signer = new RawSigner(keypair, this.provider, this.serializer);
+      return await signer.pay(payTxn);
+    }else{
+      const coinsNeeded =
       await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
         senderAddress,
         BigInt(amount),
         typeArg
       );
-    const inputCoins: ObjectId[] = coinsNeeded.map((coin) => getObjectId(coin));
-    const gasObjId = await this.getGasObject(senderAddress, inputCoins);
-    const recipients: SuiAddress[] = [receiverAddress];
-    const amounts: number[] = [amount];
-    const payTxn: PayTransaction = {
-      inputCoins: inputCoins,
-      recipients: recipients,
-      amounts: amounts,
-      gasPayment: gasObjId,
-      gasBudget: DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER,
-    };
-    const signer = new RawSigner(keypair, this.provider, this.serializer);
-    return await signer.pay(payTxn);
+      const inputCoins: ObjectId[] = coinsNeeded.map((coin) => getObjectId(coin));
+      const gasObjId = await this.getGasObject(senderAddress, inputCoins);
+      const recipients: SuiAddress[] = [receiverAddress];
+      const amounts: number[] = [amount];
+      const payTxn: PayTransaction = {
+        inputCoins: inputCoins,
+        recipients: recipients,
+        amounts: amounts,
+        gasPayment: gasObjId,
+        gasBudget: DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER,
+      };
+      const signer = new RawSigner(keypair, this.provider, this.serializer);
+      return await signer.pay(payTxn);
+    }
   }
 
   async getBalance(address: string, typeArg: string = SUI_TYPE_ARG) {
@@ -216,7 +236,7 @@ export class WalletClient {
     const coinsNeeded =
       await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
         address,
-        BigInt(amount + DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER),
+        BigInt(amount),
         typeArg
       );
     const coins: ObjectId[] = coinsNeeded.map((coin) => getObjectId(coin));
