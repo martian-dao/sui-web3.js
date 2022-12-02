@@ -3,7 +3,7 @@ import * as english from '@scure/bip39/wordlists/english';
 import { Ed25519Keypair } from './cryptography/ed25519-keypair';
 import { GetObjectDataResponse, SuiAddress, TransactionEffects } from './types';
 import { JsonRpcProvider } from './providers/json-rpc-provider';
-import { Coin } from './types/framework';
+import { Coin, SUI_TYPE_ARG } from './types/framework';
 import { RpcTxnDataSerializer } from './signers/txn-data-serializers/rpc-txn-data-serializer';
 import {
   getMoveObject,
@@ -14,7 +14,7 @@ import {
 import { RawSigner } from './signers/raw-signer';
 import { ExampleNFT } from './nft_client';
 import { Network, NETWORK_TO_API } from './utils/api-endpoints';
-import { PaySuiTransaction, SignableTransaction, UnserializedSignableTransaction } from './signers/txn-data-serializers/txn-data-serializer';
+import { PaySuiTransaction, PayTransaction, SignableTransaction, UnserializedSignableTransaction } from './signers/txn-data-serializers/txn-data-serializer';
 import { DEFAULT_CLIENT_OPTIONS } from './rpc/websocket-client';
 import { Base64DataBuffer } from './serialization/base64';
 
@@ -174,32 +174,36 @@ export class WalletClient {
   async transferSuiMnemonic(
     amount: number,
     suiAccount: Ed25519Keypair,
-    receiverAddress: SuiAddress
+    receiverAddress: SuiAddress,
+    typeArg: string = SUI_TYPE_ARG
   ) {
     const keypair = suiAccount;
     const senderAddress = keypair.getPublicKey().toSuiAddress();
     const coinsNeeded =
       await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
         senderAddress,
-        BigInt(amount + DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER)
+        BigInt(amount),
+        typeArg
       );
     const inputCoins: ObjectId[] = coinsNeeded.map((coin) => getObjectId(coin));
+    const gasObjId = await this.getGasObject(senderAddress, inputCoins);
     const recipients: SuiAddress[] = [receiverAddress];
     const amounts: number[] = [amount];
-    const payTxn: PaySuiTransaction = {
+    const payTxn: PayTransaction = {
       inputCoins: inputCoins,
       recipients: recipients,
       amounts: amounts,
+      gasPayment: gasObjId,
       gasBudget: DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER,
     };
     const signer = new RawSigner(keypair, this.provider, this.serializer);
-    return await signer.paySui(payTxn);
+    return await signer.pay(payTxn);
   }
 
-  async getBalance(address: string) {
+  async getBalance(address: string, typeArg: string = SUI_TYPE_ARG) {
     let objects = await this.provider.getCoinBalancesOwnedByAddress(
       address,
-      '0x2::sui::SUI'
+      typeArg
     );
     return Coin.totalBalance(objects);
   }
@@ -208,14 +212,30 @@ export class WalletClient {
     return await this.provider.requestSuiFromFaucet(address);
   }
 
-  async getCoinsWithRequiredBalance(address: string, amount: number) {
+  async getCoinsWithRequiredBalance(address: string, amount: number, typeArg: string = SUI_TYPE_ARG) {
     const coinsNeeded =
       await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
         address,
-        BigInt(amount + DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER)
+        BigInt(amount + DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER),
+        typeArg
       );
     const coins: ObjectId[] = coinsNeeded.map((coin) => getObjectId(coin));
     return coins;
+  }
+
+  async getGasObject(address: string, exclude: ObjectId[]){
+    const gasObj = 
+        await this.provider.selectCoinsWithBalanceGreaterThanOrEqual(
+          address,
+          BigInt(DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER),
+          SUI_TYPE_ARG,
+          exclude
+        );
+    if(gasObj.length === 0){
+      throw new Error('Not Enough Gas');
+    }
+    const gasObjId: ObjectId = getObjectId(gasObj[0]);
+    return gasObjId;
   }
 
   async getCustomCoins(address: string) {
