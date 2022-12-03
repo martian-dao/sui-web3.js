@@ -341,6 +341,7 @@ class WalletClient {
                     event.coinBalanceChange.sender === address &&
                     event.coinBalanceChange.changeType !== 'Gas' &&
                     event.coinBalanceChange.changeType !== 'Pay');
+                console.log({ coinBalanceReceiveEvents, coinBalanceSendEvents });
                 const transferEvents = events?.filter((event) => event.transferObject);
                 const moveEvents = events?.filter((event) => event.moveEvent);
                 let totalCoinBalanceChange = 0;
@@ -361,7 +362,7 @@ class WalletClient {
                                 from: event.coinBalanceChange.sender,
                                 to: event.coinBalanceChange.owner?.AddressOwner,
                                 resourceType: event.coinBalanceChange.coinType,
-                                changeTextSuffix: ' SUI',
+                                changeTextSuffix: ' ' + event.coinBalanceChange.coinType?.split('::')[2],
                             };
                         }
                         else {
@@ -371,7 +372,7 @@ class WalletClient {
                                 from: event.coinBalanceChange.sender,
                                 to: event.coinBalanceChange.owner?.AddressOwner,
                                 resourceType: event.coinBalanceChange.coinType,
-                                changeTextSuffix: ' SUI',
+                                changeTextSuffix: ' ' + event.coinBalanceChange.coinType?.split('::')[2],
                             };
                         }
                     }
@@ -385,7 +386,7 @@ class WalletClient {
                             from: event.coinBalanceChange.sender,
                             to: event.coinBalanceChange.owner?.AddressOwner,
                             resourceType: event.coinBalanceChange.coinType,
-                            changeTextSuffix: ' SUI',
+                            changeTextSuffix: ' ' + event.coinBalanceChange.coinType?.split('::')[2],
                         };
                     }
                 });

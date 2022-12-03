@@ -466,6 +466,7 @@ export class WalletClient {
               event.coinBalanceChange.changeType !== 'Gas' &&
               event.coinBalanceChange.changeType !== 'Pay'
           );
+
           const transferEvents: any = events?.filter(
             (event) => event.transferObject
           );
@@ -490,7 +491,8 @@ export class WalletClient {
                   from: event.coinBalanceChange.sender,
                   to: event.coinBalanceChange.owner?.AddressOwner,
                   resourceType: event.coinBalanceChange.coinType,
-                  changeTextSuffix: ' SUI',
+                  changeTextSuffix:
+                    ' ' + event.coinBalanceChange.coinType?.split('::')[2],
                 };
               } else {
                 changeType = {
@@ -499,7 +501,8 @@ export class WalletClient {
                   from: event.coinBalanceChange.sender,
                   to: event.coinBalanceChange.owner?.AddressOwner,
                   resourceType: event.coinBalanceChange.coinType,
-                  changeTextSuffix: ' SUI',
+                  changeTextSuffix:
+                    ' ' + event.coinBalanceChange.coinType?.split('::')[2],
                 };
               }
             }
@@ -514,7 +517,8 @@ export class WalletClient {
                 from: event.coinBalanceChange.sender,
                 to: event.coinBalanceChange.owner?.AddressOwner,
                 resourceType: event.coinBalanceChange.coinType,
-                changeTextSuffix: ' SUI',
+                changeTextSuffix:
+                  ' ' + event.coinBalanceChange.coinType?.split('::')[2],
               };
             }
           });
