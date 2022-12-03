@@ -330,7 +330,7 @@ var Ed25519PublicKey = class {
 var import_bcs3 = require("@mysten/bcs");
 var import_bip39 = require("@scure/bip39");
 function isValidHardenedPath(path) {
-  if (!new RegExp("^m\\/44'\\/784'\\/0'\\/[0-9]+'\\/[0-9]+'+$").test(path)) {
+  if (!new RegExp("^m\\/44'\\/784'\\/[0-9]+'\\/[0-9]+'\\/[0-9]+'+$").test(path)) {
     return false;
   }
   return true;
@@ -3720,34 +3720,82 @@ var WalletClient = class {
       publicKey: pubKey.startsWith("0x") ? pubKey : "0x" + pubKey
     };
   }
-  async transferSuiMnemonic(amount, suiAccount, receiverAddress) {
+  async transferSuiMnemonic(amount, suiAccount, receiverAddress, typeArg = SUI_TYPE_ARG) {
     const keypair = suiAccount;
     const senderAddress = keypair.getPublicKey().toSuiAddress();
-    const coinsNeeded = await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
-      senderAddress,
-      BigInt(amount + DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER)
-    );
-    const inputCoins = coinsNeeded.map((coin) => getObjectId(coin));
-    const recipients = [receiverAddress];
-    const amounts = [amount];
-    const payTxn = {
-      inputCoins,
-      recipients,
-      amounts,
-      gasBudget: DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER
-    };
-    const signer = new RawSigner(keypair, this.provider, this.serializer);
-    return await signer.paySui(payTxn);
+    if (typeArg === SUI_TYPE_ARG) {
+      const coinsNeeded = await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
+        senderAddress,
+        BigInt(amount + DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER),
+        typeArg
+      );
+      const inputCoins = coinsNeeded.map(
+        (coin) => getObjectId(coin)
+      );
+      const recipients = [receiverAddress];
+      const amounts = [amount];
+      const payTxn = {
+        inputCoins,
+        recipients,
+        amounts,
+        gasBudget: DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER
+      };
+      const signer = new RawSigner(keypair, this.provider, this.serializer);
+      return await signer.pay(payTxn);
+    } else {
+      const coinsNeeded = await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
+        senderAddress,
+        BigInt(amount),
+        typeArg
+      );
+      const inputCoins = coinsNeeded.map(
+        (coin) => getObjectId(coin)
+      );
+      const gasObjId = await this.getGasObject(senderAddress, inputCoins);
+      const recipients = [receiverAddress];
+      const amounts = [amount];
+      const payTxn = {
+        inputCoins,
+        recipients,
+        amounts,
+        gasPayment: gasObjId,
+        gasBudget: DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER
+      };
+      const signer = new RawSigner(keypair, this.provider, this.serializer);
+      return await signer.pay(payTxn);
+    }
   }
-  async getBalance(address) {
+  async getBalance(address, typeArg = SUI_TYPE_ARG) {
     let objects = await this.provider.getCoinBalancesOwnedByAddress(
       address,
-      "0x2::sui::SUI"
+      typeArg
     );
     return Coin.totalBalance(objects);
   }
   async airdrop(address) {
     return await this.provider.requestSuiFromFaucet(address);
+  }
+  async getCoinsWithRequiredBalance(address, amount, typeArg = SUI_TYPE_ARG) {
+    const coinsNeeded = await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
+      address,
+      BigInt(amount),
+      typeArg
+    );
+    const coins = coinsNeeded.map((coin) => getObjectId(coin));
+    return coins;
+  }
+  async getGasObject(address, exclude) {
+    const gasObj = await this.provider.selectCoinsWithBalanceGreaterThanOrEqual(
+      address,
+      BigInt(DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER),
+      SUI_TYPE_ARG,
+      exclude
+    );
+    if (gasObj.length === 0) {
+      throw new Error("Not Enough Gas");
+    }
+    const gasObjId = getObjectId(gasObj[0]);
+    return gasObjId;
   }
   async getCustomCoins(address) {
     const objects = await this.provider.getCoinBalancesOwnedByAddress(address);
@@ -3756,7 +3804,8 @@ var WalletClient = class {
       symbol: Coin.getCoinSymbol(Coin.getCoinTypeArg(c)),
       name: Coin.getCoinSymbol(Coin.getCoinTypeArg(c)),
       balance: Number(Coin.getBalance(c)),
-      decimals: 9
+      decimals: 9,
+      coinTypeArg: Coin.getCoinTypeArg(c)
     }));
     return coinIds;
   }
@@ -3799,7 +3848,9 @@ var WalletClient = class {
           dryRunTxBytes = (await this.serializer.newTransferSui(address, tx.data)).toString();
           break;
         default:
-          throw new Error(`Error, unknown transaction kind ${tx.kind}. Can't dry run transaction.`);
+          throw new Error(
+            `Error, unknown transaction kind ${tx.kind}. Can't dry run transaction.`
+          );
       }
     }
     if (typeof dryRunTxBytes === "string") {
@@ -3807,9 +3858,54 @@ var WalletClient = class {
     }
     return dryRunTxBytes;
   }
-  async simulateTransaction(suiAccount, tx) {
-    const signer = new RawSigner(suiAccount, this.provider, this.serializer);
-    return await signer.dryRunTransaction(tx);
+  async dryRunTransaction(address, tx) {
+    let dryRunTxBytes;
+    if (typeof tx === "string") {
+      dryRunTxBytes = tx;
+    } else if (tx instanceof Base64DataBuffer) {
+      dryRunTxBytes = tx.toString();
+    } else {
+      switch (tx.kind) {
+        case "bytes":
+          dryRunTxBytes = new Base64DataBuffer(tx.data).toString();
+          break;
+        case "mergeCoin":
+          dryRunTxBytes = (await this.serializer.newMergeCoin(address, tx.data)).toString();
+          break;
+        case "moveCall":
+          dryRunTxBytes = (await this.serializer.newMoveCall(address, tx.data)).toString();
+          break;
+        case "pay":
+          dryRunTxBytes = (await this.serializer.newPay(address, tx.data)).toString();
+          break;
+        case "payAllSui":
+          dryRunTxBytes = (await this.serializer.newPayAllSui(address, tx.data)).toString();
+          break;
+        case "paySui":
+          dryRunTxBytes = (await this.serializer.newPaySui(address, tx.data)).toString();
+          break;
+        case "publish":
+          dryRunTxBytes = (await this.serializer.newPublish(address, tx.data)).toString();
+          break;
+        case "splitCoin":
+          dryRunTxBytes = (await this.serializer.newSplitCoin(address, tx.data)).toString();
+          break;
+        case "transferObject":
+          dryRunTxBytes = (await this.serializer.newTransferObject(address, tx.data)).toString();
+          break;
+        case "transferSui":
+          dryRunTxBytes = (await this.serializer.newTransferSui(address, tx.data)).toString();
+          break;
+        default:
+          throw new Error(
+            `Error, unknown transaction kind ${tx.kind}. Can't dry run transaction.`
+          );
+      }
+    }
+    return this.provider.dryRunTransaction(dryRunTxBytes);
+  }
+  async simulateTransaction(address, tx) {
+    return await this.dryRunTransaction(address, tx);
   }
   async getTransactions(address) {
     const transactions = await this.provider.getTransactionsForAddress(address);

@@ -11,7 +11,7 @@ const bip39_1 = require("@scure/bip39");
  * @param path path string (e.g. `m/44'/784'/0'/0'/0'`).
  */
 function isValidHardenedPath(path) {
-    if (!new RegExp("^m\\/44'\\/784'\\/0'\\/[0-9]+'\\/[0-9]+'+$").test(path)) {
+    if (!new RegExp("^m\\/44'\\/784'\\/[0-9]+'\\/[0-9]+'\\/[0-9]+'+$").test(path)) {
         return false;
     }
     return true;

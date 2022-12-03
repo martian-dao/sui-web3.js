@@ -3,6 +3,7 @@ import { Ed25519Keypair } from './cryptography/ed25519-keypair';
 import { GetObjectDataResponse, SuiAddress, TransactionEffects } from './types';
 import { JsonRpcProvider } from './providers/json-rpc-provider';
 import { RpcTxnDataSerializer } from './signers/txn-data-serializers/rpc-txn-data-serializer';
+import { ObjectId } from './types/objects';
 import { SignableTransaction } from './signers/txn-data-serializers/txn-data-serializer';
 import { Base64DataBuffer } from './serialization/base64';
 export interface AccountMetaData {
@@ -59,18 +60,28 @@ export declare class WalletClient {
      * @returns
      */
     createNewAccount(code: string, index: number): Promise<AccountMetaData>;
-    transferSuiMnemonic(amount: number, suiAccount: Ed25519Keypair, receiverAddress: SuiAddress): Promise<import("./types").SuiExecuteTransactionResponse>;
-    getBalance(address: string): Promise<bigint>;
+    transferSuiMnemonic(amount: number, suiAccount: Ed25519Keypair, receiverAddress: SuiAddress, typeArg?: string): Promise<import("./types").SuiExecuteTransactionResponse>;
+    getBalance(address: string, typeArg?: string): Promise<bigint>;
     airdrop(address: string): Promise<import("./types").FaucetResponse>;
+    getCoinsWithRequiredBalance(address: string, amount: number, typeArg?: string): Promise<string[]>;
+    getGasObject(address: string, exclude: ObjectId[]): Promise<string>;
     getCustomCoins(address: string): Promise<{
         Id: string;
         symbol: string;
         name: string;
         balance: number;
         decimals: number;
+        coinTypeArg: string;
     }[]>;
     generateTransaction(address: SuiAddress, tx: SignableTransaction | string | Base64DataBuffer): Promise<Base64DataBuffer>;
-    simulateTransaction(suiAccount: Ed25519Keypair, tx: SignableTransaction | string | Base64DataBuffer): Promise<TransactionEffects>;
+    /**
+     * Dry run a transaction and return the result.
+     * @param address address of the account
+     * @param tx the transaction as SignableTransaction or string (in base64) that will dry run
+     * @returns The transaction effects
+     */
+    dryRunTransaction(address: string, tx: SignableTransaction | string | Base64DataBuffer): Promise<TransactionEffects>;
+    simulateTransaction(address: string, tx: SignableTransaction | string | Base64DataBuffer): Promise<TransactionEffects>;
     getTransactions(address: SuiAddress): Promise<any[]>;
     getNfts(address: SuiAddress): Promise<GetObjectDataResponse[]>;
     mintNfts(suiAccount: Ed25519Keypair, name?: string, description?: string, imageUrl?: string): Promise<import("./types").SuiExecuteTransactionResponse>;
