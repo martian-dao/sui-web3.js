@@ -27,6 +27,8 @@ const wallet_client_1 = require("./wallet_client");
 const Nacl = __importStar(require("tweetnacl"));
 const NODE_URL = 'https://fullnode.devnet.sui.io/';
 const FAUCET_URL = 'https://faucet.devnet.sui.io/gas';
+let alice;
+let aliceAccount;
 const apis = new wallet_client_1.WalletClient(NODE_URL, FAUCET_URL);
 /**
  *
@@ -44,9 +46,30 @@ function verifySignature(message, signature, publicKey) {
     const publicKeyBuffer = Buffer.from(pubKey, "hex");
     return Nacl.sign.detached.verify(new TextEncoder().encode(message), signatureBuffer, publicKeyBuffer);
 }
-test("verify create wallet", async () => {
-    const alice = await apis.createWallet();
-    const aliceAccount = await wallet_client_1.WalletClient.getAccountFromMetaData(alice.code);
-    console.log(aliceAccount.toPrivateKeyObject());
+async function setupAccount() {
+    if (alice)
+        return;
+    try {
+        alice = await apis.createWallet();
+        aliceAccount = await wallet_client_1.WalletClient.getAccountFromMetaData(alice.code);
+        await apis.airdrop(aliceAccount.getPublicKey().toSuiAddress());
+    }
+    catch (err) {
+        const mnemonic = "arena nothing skate then sport huge fence era cheese client powder tackle";
+        aliceAccount = await wallet_client_1.WalletClient.getAccountFromMetaData(mnemonic);
+    }
+}
+// to deal with faucet rate limit
+beforeEach(async () => {
+    await setupAccount();
+});
+test("verify create wallet and airdrop", async () => {
+    const balance = await apis.getBalance(aliceAccount.getPublicKey().toSuiAddress());
+    expect(balance).toBe(10000000n || 50000000n);
+});
+test("verify simulation wallet", async () => {
+    const txn = { "kind": "moveCall", "data": { "packageObjectId": "0x2", "module": "devnet_nft", "function": "mint", "typeArguments": [], "arguments": ["Example NFT Dapps", "An NFT created by Sui Wallet", "https://aptos.dev/img/nyan.jpeg"], "gasBudget": 10000 } };
+    const response = await apis.simulateTransaction(aliceAccount.getPublicKey().toSuiAddress(), txn);
+    expect(response.status.status).toBe('success');
 });
 //# sourceMappingURL=wallet_client.test.js.map

@@ -14,7 +14,12 @@ import {
 import { RawSigner } from './signers/raw-signer';
 import { ExampleNFT } from './nft_client';
 import { Network, NETWORK_TO_API } from './utils/api-endpoints';
-import { PaySuiTransaction, PayTransaction, SignableTransaction, UnserializedSignableTransaction } from './signers/txn-data-serializers/txn-data-serializer';
+import {
+  PaySuiTransaction,
+  PayTransaction,
+  SignableTransaction,
+  UnserializedSignableTransaction,
+} from './signers/txn-data-serializers/txn-data-serializer';
 import { DEFAULT_CLIENT_OPTIONS } from './rpc/websocket-client';
 import { Base64DataBuffer } from './serialization/base64';
 
@@ -179,14 +184,16 @@ export class WalletClient {
   ) {
     const keypair = suiAccount;
     const senderAddress = keypair.getPublicKey().toSuiAddress();
-    if(typeArg === SUI_TYPE_ARG){
+    if (typeArg === SUI_TYPE_ARG) {
       const coinsNeeded =
-      await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
-        senderAddress,
-        BigInt(amount + DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER),
-        typeArg
+        await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
+          senderAddress,
+          BigInt(amount + DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER),
+          typeArg
+        );
+      const inputCoins: ObjectId[] = coinsNeeded.map((coin) =>
+        getObjectId(coin)
       );
-      const inputCoins: ObjectId[] = coinsNeeded.map((coin) => getObjectId(coin));
       const recipients: SuiAddress[] = [receiverAddress];
       const amounts: number[] = [amount];
       const payTxn: PayTransaction = {
@@ -197,14 +204,16 @@ export class WalletClient {
       };
       const signer = new RawSigner(keypair, this.provider, this.serializer);
       return await signer.pay(payTxn);
-    }else{
+    } else {
       const coinsNeeded =
-      await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
-        senderAddress,
-        BigInt(amount),
-        typeArg
+        await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
+          senderAddress,
+          BigInt(amount),
+          typeArg
+        );
+      const inputCoins: ObjectId[] = coinsNeeded.map((coin) =>
+        getObjectId(coin)
       );
-      const inputCoins: ObjectId[] = coinsNeeded.map((coin) => getObjectId(coin));
       const gasObjId = await this.getGasObject(senderAddress, inputCoins);
       const recipients: SuiAddress[] = [receiverAddress];
       const amounts: number[] = [amount];
@@ -232,7 +241,11 @@ export class WalletClient {
     return await this.provider.requestSuiFromFaucet(address);
   }
 
-  async getCoinsWithRequiredBalance(address: string, amount: number, typeArg: string = SUI_TYPE_ARG) {
+  async getCoinsWithRequiredBalance(
+    address: string,
+    amount: number,
+    typeArg: string = SUI_TYPE_ARG
+  ) {
     const coinsNeeded =
       await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
         address,
@@ -243,15 +256,14 @@ export class WalletClient {
     return coins;
   }
 
-  async getGasObject(address: string, exclude: ObjectId[]){
-    const gasObj = 
-        await this.provider.selectCoinsWithBalanceGreaterThanOrEqual(
-          address,
-          BigInt(DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER),
-          SUI_TYPE_ARG,
-          exclude
-        );
-    if(gasObj.length === 0){
+  async getGasObject(address: string, exclude: ObjectId[]) {
+    const gasObj = await this.provider.selectCoinsWithBalanceGreaterThanOrEqual(
+      address,
+      BigInt(DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER),
+      SUI_TYPE_ARG,
+      exclude
+    );
+    if (gasObj.length === 0) {
       throw new Error('Not Enough Gas');
     }
     const gasObjId: ObjectId = getObjectId(gasObj[0]);
@@ -266,53 +278,79 @@ export class WalletClient {
       name: Coin.getCoinSymbol(Coin.getCoinTypeArg(c)),
       balance: Number(Coin.getBalance(c)),
       decimals: 9,
+      coinTypeArg: Coin.getCoinTypeArg(c),
     }));
     return coinIds;
   }
 
-  async generateTransaction(address: SuiAddress, tx: SignableTransaction | string | Base64DataBuffer): Promise<Base64DataBuffer>{
+  async generateTransaction(
+    address: SuiAddress,
+    tx: SignableTransaction | string | Base64DataBuffer
+  ): Promise<Base64DataBuffer> {
     let dryRunTxBytes: string;
     if (typeof tx === 'string') {
       dryRunTxBytes = tx;
-    } else if (tx instanceof Base64DataBuffer){
+    } else if (tx instanceof Base64DataBuffer) {
       dryRunTxBytes = tx.toString();
-    }else{
+    } else {
       switch (tx.kind) {
         case 'bytes':
           dryRunTxBytes = new Base64DataBuffer(tx.data).toString();
           break;
         case 'mergeCoin':
-          dryRunTxBytes = (await this.serializer.newMergeCoin(address, tx.data)).toString();
+          dryRunTxBytes = (
+            await this.serializer.newMergeCoin(address, tx.data)
+          ).toString();
           break;
         case 'moveCall':
-          dryRunTxBytes = (await this.serializer.newMoveCall(address, tx.data)).toString();
+          dryRunTxBytes = (
+            await this.serializer.newMoveCall(address, tx.data)
+          ).toString();
           break;
         case 'pay':
-          dryRunTxBytes = (await this.serializer.newPay(address, tx.data)).toString();
+          dryRunTxBytes = (
+            await this.serializer.newPay(address, tx.data)
+          ).toString();
           break;
         case 'payAllSui':
-          dryRunTxBytes = (await this.serializer.newPayAllSui(address, tx.data)).toString();
+          dryRunTxBytes = (
+            await this.serializer.newPayAllSui(address, tx.data)
+          ).toString();
           break;
         case 'paySui':
-          dryRunTxBytes = (await this.serializer.newPaySui(address, tx.data)).toString();
+          dryRunTxBytes = (
+            await this.serializer.newPaySui(address, tx.data)
+          ).toString();
           break;
         case 'publish':
-          dryRunTxBytes = (await this.serializer.newPublish(address, tx.data)).toString();
+          dryRunTxBytes = (
+            await this.serializer.newPublish(address, tx.data)
+          ).toString();
           break;
         case 'splitCoin':
-          dryRunTxBytes = (await this.serializer.newSplitCoin(address, tx.data)).toString();
+          dryRunTxBytes = (
+            await this.serializer.newSplitCoin(address, tx.data)
+          ).toString();
           break;
         case 'transferObject':
-          dryRunTxBytes = (await this.serializer.newTransferObject(address, tx.data)).toString();
+          dryRunTxBytes = (
+            await this.serializer.newTransferObject(address, tx.data)
+          ).toString();
           break;
         case 'transferSui':
-          dryRunTxBytes = (await this.serializer.newTransferSui(address, tx.data)).toString();
+          dryRunTxBytes = (
+            await this.serializer.newTransferSui(address, tx.data)
+          ).toString();
           break;
         default:
-          throw new Error(`Error, unknown transaction kind ${(tx as any).kind}. Can't dry run transaction.`);
+          throw new Error(
+            `Error, unknown transaction kind ${
+              (tx as any).kind
+            }. Can't dry run transaction.`
+          );
       }
     }
-    if(typeof dryRunTxBytes === 'string'){
+    if (typeof dryRunTxBytes === 'string') {
       return new Base64DataBuffer(dryRunTxBytes);
     }
     return dryRunTxBytes;
@@ -324,52 +362,80 @@ export class WalletClient {
    * @param tx the transaction as SignableTransaction or string (in base64) that will dry run
    * @returns The transaction effects
    */
-   async dryRunTransaction(address: string, tx: SignableTransaction | string | Base64DataBuffer): Promise<TransactionEffects> {
+  async dryRunTransaction(
+    address: string,
+    tx: SignableTransaction | string | Base64DataBuffer
+  ): Promise<TransactionEffects> {
     let dryRunTxBytes: string;
     if (typeof tx === 'string') {
       dryRunTxBytes = tx;
-    } else if (tx instanceof Base64DataBuffer){
+    } else if (tx instanceof Base64DataBuffer) {
       dryRunTxBytes = tx.toString();
-    }else{
+    } else {
       switch (tx.kind) {
         case 'bytes':
           dryRunTxBytes = new Base64DataBuffer(tx.data).toString();
           break;
         case 'mergeCoin':
-          dryRunTxBytes = (await this.serializer.newMergeCoin(address, tx.data)).toString();
+          dryRunTxBytes = (
+            await this.serializer.newMergeCoin(address, tx.data)
+          ).toString();
           break;
         case 'moveCall':
-          dryRunTxBytes = (await this.serializer.newMoveCall(address, tx.data)).toString();
+          dryRunTxBytes = (
+            await this.serializer.newMoveCall(address, tx.data)
+          ).toString();
           break;
         case 'pay':
-          dryRunTxBytes = (await this.serializer.newPay(address, tx.data)).toString();
+          dryRunTxBytes = (
+            await this.serializer.newPay(address, tx.data)
+          ).toString();
           break;
         case 'payAllSui':
-          dryRunTxBytes = (await this.serializer.newPayAllSui(address, tx.data)).toString();
+          dryRunTxBytes = (
+            await this.serializer.newPayAllSui(address, tx.data)
+          ).toString();
           break;
         case 'paySui':
-          dryRunTxBytes = (await this.serializer.newPaySui(address, tx.data)).toString();
+          dryRunTxBytes = (
+            await this.serializer.newPaySui(address, tx.data)
+          ).toString();
           break;
         case 'publish':
-          dryRunTxBytes = (await this.serializer.newPublish(address, tx.data)).toString();
+          dryRunTxBytes = (
+            await this.serializer.newPublish(address, tx.data)
+          ).toString();
           break;
         case 'splitCoin':
-          dryRunTxBytes = (await this.serializer.newSplitCoin(address, tx.data)).toString();
+          dryRunTxBytes = (
+            await this.serializer.newSplitCoin(address, tx.data)
+          ).toString();
           break;
         case 'transferObject':
-          dryRunTxBytes = (await this.serializer.newTransferObject(address, tx.data)).toString();
+          dryRunTxBytes = (
+            await this.serializer.newTransferObject(address, tx.data)
+          ).toString();
           break;
         case 'transferSui':
-          dryRunTxBytes = (await this.serializer.newTransferSui(address, tx.data)).toString();
+          dryRunTxBytes = (
+            await this.serializer.newTransferSui(address, tx.data)
+          ).toString();
           break;
         default:
-          throw new Error(`Error, unknown transaction kind ${(tx as any).kind}. Can't dry run transaction.`);
+          throw new Error(
+            `Error, unknown transaction kind ${
+              (tx as any).kind
+            }. Can't dry run transaction.`
+          );
       }
     }
     return this.provider.dryRunTransaction(dryRunTxBytes);
   }
 
-  async simulateTransaction(address: string, tx: SignableTransaction | string | Base64DataBuffer): Promise<TransactionEffects> {
+  async simulateTransaction(
+    address: string,
+    tx: SignableTransaction | string | Base64DataBuffer
+  ): Promise<TransactionEffects> {
     return await this.dryRunTransaction(address, tx);
   }
 
