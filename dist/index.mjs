@@ -3696,7 +3696,7 @@ var WalletClient = class {
             changeTextSuffix: ""
           };
           coinBalanceReceiveEvents == null ? void 0 : coinBalanceReceiveEvents.forEach((event) => {
-            var _a, _b;
+            var _a, _b, _c, _d;
             totalCoinBalanceChange += event.coinBalanceChange.amount;
             if (!changeType.type) {
               if (event.coinBalanceChange.sender === AIRDROP_SENDER) {
@@ -3706,22 +3706,22 @@ var WalletClient = class {
                   from: event.coinBalanceChange.sender,
                   to: (_a = event.coinBalanceChange.owner) == null ? void 0 : _a.AddressOwner,
                   resourceType: event.coinBalanceChange.coinType,
-                  changeTextSuffix: " SUI"
+                  changeTextSuffix: " " + ((_b = event.coinBalanceChange.coinType) == null ? void 0 : _b.split("::")[2])
                 };
               } else {
                 changeType = {
                   type: "Receive",
                   text: "Received",
                   from: event.coinBalanceChange.sender,
-                  to: (_b = event.coinBalanceChange.owner) == null ? void 0 : _b.AddressOwner,
+                  to: (_c = event.coinBalanceChange.owner) == null ? void 0 : _c.AddressOwner,
                   resourceType: event.coinBalanceChange.coinType,
-                  changeTextSuffix: " SUI"
+                  changeTextSuffix: " " + ((_d = event.coinBalanceChange.coinType) == null ? void 0 : _d.split("::")[2])
                 };
               }
             }
           });
           coinBalanceSendEvents == null ? void 0 : coinBalanceSendEvents.forEach((event) => {
-            var _a;
+            var _a, _b;
             totalCoinBalanceChange += event.coinBalanceChange.amount;
             if (!changeType.type) {
               changeType = {
@@ -3730,7 +3730,7 @@ var WalletClient = class {
                 from: event.coinBalanceChange.sender,
                 to: (_a = event.coinBalanceChange.owner) == null ? void 0 : _a.AddressOwner,
                 resourceType: event.coinBalanceChange.coinType,
-                changeTextSuffix: " SUI"
+                changeTextSuffix: " " + ((_b = event.coinBalanceChange.coinType) == null ? void 0 : _b.split("::")[2])
               };
             }
           });

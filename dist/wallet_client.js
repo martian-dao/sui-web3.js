@@ -361,7 +361,7 @@ class WalletClient {
                                 from: event.coinBalanceChange.sender,
                                 to: event.coinBalanceChange.owner?.AddressOwner,
                                 resourceType: event.coinBalanceChange.coinType,
-                                changeTextSuffix: ' SUI',
+                                changeTextSuffix: ' ' + event.coinBalanceChange.coinType?.split('::')[2],
                             };
                         }
                         else {
@@ -371,7 +371,7 @@ class WalletClient {
                                 from: event.coinBalanceChange.sender,
                                 to: event.coinBalanceChange.owner?.AddressOwner,
                                 resourceType: event.coinBalanceChange.coinType,
-                                changeTextSuffix: ' SUI',
+                                changeTextSuffix: ' ' + event.coinBalanceChange.coinType?.split('::')[2],
                             };
                         }
                     }
@@ -385,7 +385,7 @@ class WalletClient {
                             from: event.coinBalanceChange.sender,
                             to: event.coinBalanceChange.owner?.AddressOwner,
                             resourceType: event.coinBalanceChange.coinType,
-                            changeTextSuffix: ' SUI',
+                            changeTextSuffix: ' ' + event.coinBalanceChange.coinType?.split('::')[2],
                         };
                     }
                 });
