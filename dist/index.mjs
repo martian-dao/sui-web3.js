@@ -3683,7 +3683,6 @@ var WalletClient = class {
           const coinBalanceSendEvents = events == null ? void 0 : events.filter(
             (event) => event.coinBalanceChange && event.coinBalanceChange.sender === address && event.coinBalanceChange.changeType !== "Gas" && event.coinBalanceChange.changeType !== "Pay"
           );
-          console.log({ coinBalanceReceiveEvents, coinBalanceSendEvents });
           const transferEvents = events == null ? void 0 : events.filter(
             (event) => event.transferObject
           );

@@ -341,7 +341,6 @@ class WalletClient {
                     event.coinBalanceChange.sender === address &&
                     event.coinBalanceChange.changeType !== 'Gas' &&
                     event.coinBalanceChange.changeType !== 'Pay');
-                console.log({ coinBalanceReceiveEvents, coinBalanceSendEvents });
                 const transferEvents = events?.filter((event) => event.transferObject);
                 const moveEvents = events?.filter((event) => event.moveEvent);
                 let totalCoinBalanceChange = 0;
