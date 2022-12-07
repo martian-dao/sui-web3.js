@@ -24,7 +24,7 @@ import { DEFAULT_CLIENT_OPTIONS } from './rpc/websocket-client';
 import { Base64DataBuffer } from './serialization/base64';
 
 const COIN_TYPE = 784;
-const MAX_ACCOUNTS = 5;
+const MAX_ACCOUNTS = 20;
 const DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER = 1000;
 const endpoints = NETWORK_TO_API[Network.DEVNET];
 

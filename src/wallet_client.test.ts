@@ -72,5 +72,5 @@ test("verify Adding accounts", async () => {
 
 test("verify Import Wallet", async () => {
   const response: Wallet = await apis.importWallet("arena nothing skate then sport huge fence era cheese client powder tackle");
-  expect(response.accounts.length).toBe(2);
+  expect(response.accounts.length).toBe(3);
 });
