@@ -112,7 +112,7 @@ export class WalletClient {
       const publicKey = Buffer.from(keypair.getPublicKey().toBytes()).toString('hex');
       // check if this account exists on Sui or not
       const response = await this.provider.getObjectsOwnedByAddress(address);
-      if (Object.keys(response).length !== 0) {
+      if (Object.keys(response).length !== 0 || i === 0) {
       accountMetaData.push({
         derivationPath,
         address: address.startsWith('0x') ? address : '0x' + address,
