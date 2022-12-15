@@ -597,8 +597,7 @@ export class WalletClient {
         let objData = await this.provider.getObject(obj.objectId);
         let moveObj = getMoveObject(objData);
         if (
-          moveObj!.fields.name &&
-          moveObj!.fields.description &&
+          !Coin.isCoin(objData) &&
           moveObj!.fields.url
         ) {
           nfts.push(objData);
