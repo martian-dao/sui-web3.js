@@ -37,7 +37,7 @@ const api_endpoints_1 = require("./utils/api-endpoints");
 const websocket_client_1 = require("./rpc/websocket-client");
 const base64_1 = require("./serialization/base64");
 const COIN_TYPE = 784;
-const MAX_ACCOUNTS = 5;
+const MAX_ACCOUNTS = 20;
 const DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER = 1000;
 const endpoints = api_endpoints_1.NETWORK_TO_API[api_endpoints_1.Network.DEVNET];
 const AIRDROP_SENDER = '0xc4173a804406a365e69dfb297d4eaaf002546ebd';
@@ -60,7 +60,7 @@ class WalletClient {
      */
     //Use deriveKeypair() in ed25519-keypair.ts
     //Giving error for different derivation path other than standard 0
-    static fromDerivePath(mnemonics) {
+    static fromDerivePath(mnemonics, derivationPath) {
         // const normalizeMnemonics = mnemonics
         //     .trim()
         //     .split(/\s+/)
@@ -68,7 +68,7 @@ class WalletClient {
         //     .join(" ");
         // const { key } = derivePath(path, Buffer.from(bip39.mnemonicToSeedSync(normalizeMnemonics)).toString("hex"));
         // return Ed25519Keypair.fromSeed(new Uint8Array(key));
-        return ed25519_keypair_1.Ed25519Keypair.deriveKeypair(mnemonics);
+        return ed25519_keypair_1.Ed25519Keypair.deriveKeypair(mnemonics, derivationPath);
     }
     /**
      * returns an Ed25519Keypair object given a private key and
@@ -91,32 +91,26 @@ class WalletClient {
      * @returns Wallet object containing all accounts of a user
      */
     async importWallet(code) {
-        let address = '';
-        let publicKey = '';
-        let derivationPath = '';
         const accountMetaData = [];
         for (let i = 0; i < MAX_ACCOUNTS; i += 1) {
             /* eslint-disable no-await-in-loop */
-            derivationPath = `m/44'/${COIN_TYPE}'/${i}'/0'/0'`;
-            // derivationPath = `m/44'/${COIN_TYPE}'/0'/0'/${i}'`;
-            const keypair = WalletClient.fromDerivePath(code);
-            // const keypair = Ed25519Keypair.deriveKeypair(code, derivationPath)
-            address = keypair.getPublicKey().toSuiAddress();
-            publicKey = Buffer.from(keypair.getPublicKey().toBytes()).toString('hex');
-            // publicKey = keypair.getPublicKey().toString();
+            const derivationPath = `m/44'/${COIN_TYPE}'/${i}'/0'/0'`;
+            const keypair = WalletClient.fromDerivePath(code, derivationPath);
+            const address = keypair.getPublicKey().toSuiAddress();
+            const publicKey = Buffer.from(keypair.getPublicKey().toBytes()).toString('hex');
             // check if this account exists on Sui or not
-            // const response = await this.provider.getObjectsOwnedByAddress(address);
-            // if (Object.keys(response).length !== 0) {
-            accountMetaData.push({
-                derivationPath,
-                address: address.startsWith('0x') ? address : '0x' + address,
-                publicKey: publicKey.startsWith('0x') ? publicKey : '0x' + publicKey,
-            });
-            // NOTE: breaking because multiple address support is not available currently
-            break;
-            // } else {
-            // break;
-            // }
+            const response = await this.provider.getObjectsOwnedByAddress(address);
+            if (Object.keys(response).length !== 0 || i === 0) {
+                accountMetaData.push({
+                    derivationPath,
+                    address: address.startsWith('0x') ? address : '0x' + address,
+                    publicKey: publicKey.startsWith('0x') ? publicKey : '0x' + publicKey,
+                });
+                // NOTE: breaking because multiple address support is not available currently
+            }
+            else {
+                break;
+            }
             /* eslint-enable no-await-in-loop */
         }
         return { code, accounts: accountMetaData };
@@ -146,7 +140,7 @@ class WalletClient {
             throw new Error('Max no. of accounts reached');
         }
         const derivationPath = `m/44'/${COIN_TYPE}'/${index}'/0'/0'`;
-        const keypair = WalletClient.fromDerivePath(code);
+        const keypair = WalletClient.fromDerivePath(code, derivationPath);
         const address = keypair.getPublicKey().toSuiAddress();
         const pubKey = Buffer.from(keypair.getPublicKey().toBytes()).toString('hex');
         return {
@@ -448,8 +442,7 @@ class WalletClient {
         await Promise.all(objects.map(async (obj) => {
             let objData = await this.provider.getObject(obj.objectId);
             let moveObj = (0, objects_1.getMoveObject)(objData);
-            if (moveObj.fields.name &&
-                moveObj.fields.description &&
+            if (!framework_1.Coin.isCoin(objData) &&
                 moveObj.fields.url) {
                 nfts.push(objData);
             }

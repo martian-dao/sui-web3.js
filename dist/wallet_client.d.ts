@@ -26,7 +26,7 @@ export declare class WalletClient {
      * @param mnemonics.
      * @returns Ed25519Keypair
      */
-    static fromDerivePath(mnemonics: string): Ed25519Keypair;
+    static fromDerivePath(mnemonics: string, derivationPath?: string): Ed25519Keypair;
     /**
      * returns an Ed25519Keypair object given a private key and
      * address of the account

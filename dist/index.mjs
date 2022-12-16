@@ -3414,7 +3414,7 @@ var ExampleNFT = class {
 
 // src/wallet_client.ts
 var COIN_TYPE2 = 784;
-var MAX_ACCOUNTS = 5;
+var MAX_ACCOUNTS = 20;
 var DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER = 1e3;
 var endpoints = NETWORK_TO_API["DEVNET" /* DEVNET */];
 var AIRDROP_SENDER = "0xc4173a804406a365e69dfb297d4eaaf002546ebd";
@@ -3428,28 +3428,29 @@ var WalletClient = class {
     });
     this.serializer = new RpcTxnDataSerializer(nodeUrl);
   }
-  static fromDerivePath(mnemonics) {
-    return Ed25519Keypair.deriveKeypair(mnemonics);
+  static fromDerivePath(mnemonics, derivationPath) {
+    return Ed25519Keypair.deriveKeypair(mnemonics, derivationPath);
   }
   static getAccountFromPrivateKey(privateKey) {
     return Ed25519Keypair.fromSeed(privateKey.slice(0, 32));
   }
   async importWallet(code) {
-    let address = "";
-    let publicKey = "";
-    let derivationPath = "";
     const accountMetaData = [];
     for (let i = 0; i < MAX_ACCOUNTS; i += 1) {
-      derivationPath = `m/44'/${COIN_TYPE2}'/${i}'/0'/0'`;
-      const keypair = WalletClient.fromDerivePath(code);
-      address = keypair.getPublicKey().toSuiAddress();
-      publicKey = Buffer.from(keypair.getPublicKey().toBytes()).toString("hex");
-      accountMetaData.push({
-        derivationPath,
-        address: address.startsWith("0x") ? address : "0x" + address,
-        publicKey: publicKey.startsWith("0x") ? publicKey : "0x" + publicKey
-      });
-      break;
+      const derivationPath = `m/44'/${COIN_TYPE2}'/${i}'/0'/0'`;
+      const keypair = WalletClient.fromDerivePath(code, derivationPath);
+      const address = keypair.getPublicKey().toSuiAddress();
+      const publicKey = Buffer.from(keypair.getPublicKey().toBytes()).toString("hex");
+      const response = await this.provider.getObjectsOwnedByAddress(address);
+      if (Object.keys(response).length !== 0 || i === 0) {
+        accountMetaData.push({
+          derivationPath,
+          address: address.startsWith("0x") ? address : "0x" + address,
+          publicKey: publicKey.startsWith("0x") ? publicKey : "0x" + publicKey
+        });
+      } else {
+        break;
+      }
     }
     return { code, accounts: accountMetaData };
   }
@@ -3465,7 +3466,7 @@ var WalletClient = class {
       throw new Error("Max no. of accounts reached");
     }
     const derivationPath = `m/44'/${COIN_TYPE2}'/${index}'/0'/0'`;
-    const keypair = WalletClient.fromDerivePath(code);
+    const keypair = WalletClient.fromDerivePath(code, derivationPath);
     const address = keypair.getPublicKey().toSuiAddress();
     const pubKey = Buffer.from(keypair.getPublicKey().toBytes()).toString(
       "hex"
@@ -3798,7 +3799,7 @@ var WalletClient = class {
       objects.map(async (obj) => {
         let objData = await this.provider.getObject(obj.objectId);
         let moveObj = getMoveObject(objData);
-        if (moveObj.fields.name && moveObj.fields.description && moveObj.fields.url) {
+        if (!Coin.isCoin(objData) && moveObj.fields.url) {
           nfts.push(objData);
         } else if (moveObj.fields.metadata) {
           nfts.push(objData);
