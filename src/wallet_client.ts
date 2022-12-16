@@ -188,14 +188,14 @@ export class WalletClient {
       );
       const recipients: SuiAddress[] = [receiverAddress];
       const amounts: number[] = [amount];
-      const payTxn: PayTransaction = {
+      const payTxn: PaySuiTransaction = {
         inputCoins: inputCoins,
         recipients: recipients,
         amounts: amounts,
         gasBudget: DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER,
       };
       const signer = new RawSigner(keypair, this.provider, this.serializer);
-      return await signer.pay(payTxn);
+      return await signer.paySui(payTxn);
     } else {
       const coinsNeeded =
         await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
