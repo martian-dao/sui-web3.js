@@ -56,6 +56,7 @@ async function setupAccount() {
     }
     catch (err) {
         const mnemonic = "arena nothing skate then sport huge fence era cheese client powder tackle";
+        alice = await apis.importWallet(mnemonic);
         aliceAccount = await wallet_client_1.WalletClient.getAccountFromMetaData(mnemonic);
     }
 }
@@ -65,11 +66,22 @@ beforeEach(async () => {
 });
 test("verify create wallet and airdrop", async () => {
     const balance = await apis.getBalance(aliceAccount.getPublicKey().toSuiAddress());
-    expect(balance).toBe(10000000n || 50000000n);
+    // expect(balance).toBe(
+    //   50000000n || 10000000n
+    // );
+    expect(balance).toBeGreaterThan(0);
 });
 test("verify simulation wallet", async () => {
     const txn = { "kind": "moveCall", "data": { "packageObjectId": "0x2", "module": "devnet_nft", "function": "mint", "typeArguments": [], "arguments": ["Example NFT Dapps", "An NFT created by Sui Wallet", "https://aptos.dev/img/nyan.jpeg"], "gasBudget": 10000 } };
     const response = await apis.simulateTransaction(aliceAccount.getPublicKey().toSuiAddress(), txn);
     expect(response.status.status).toBe('success');
+});
+test("verify Adding accounts", async () => {
+    const response = await apis.createNewAccount(alice.code, 1);
+    expect(response.derivationPath).toBe("m/44'/784'/1'/0'/0'");
+});
+test("verify Import Wallet", async () => {
+    const response = await apis.importWallet("arena nothing skate then sport huge fence era cheese client powder tackle");
+    expect(response.accounts.length).toBe(3);
 });
 //# sourceMappingURL=wallet_client.test.js.map
