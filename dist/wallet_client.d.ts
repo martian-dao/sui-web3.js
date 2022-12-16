@@ -26,7 +26,7 @@ export declare class WalletClient {
      * @param mnemonics.
      * @returns Ed25519Keypair
      */
-    static fromDerivePath(mnemonics: string): Ed25519Keypair;
+    static fromDerivePath(mnemonics: string, derivationPath?: string): Ed25519Keypair;
     /**
      * returns an Ed25519Keypair object given a private key and
      * address of the account
@@ -86,6 +86,6 @@ export declare class WalletClient {
     getNfts(address: SuiAddress): Promise<GetObjectDataResponse[]>;
     mintNfts(suiAccount: Ed25519Keypair, name?: string, description?: string, imageUrl?: string): Promise<import("./types").SuiExecuteTransactionResponse>;
     transferNft(suiAccount: Ed25519Keypair, nftId: string, recipientID: string): Promise<import("./types").SuiExecuteTransactionResponse>;
-    static getAccountFromMetaData(mnemonic: string, _metadata?: object): any;
+    static getAccountFromMetaData(mnemonic: string, metadata?: AccountMetaData): any;
 }
 //# sourceMappingURL=wallet_client.d.ts.map
