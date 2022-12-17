@@ -112,6 +112,14 @@ export class Ed25519Keypair implements Keypair {
   getPublicKey(): Ed25519PublicKey {
     return new Ed25519PublicKey(this.keypair.publicKey);
   }
+  
+  /**
+   * The secret key for this Ed25519 keypair
+   */
+   getSecretKey(): string {
+    return toB64(this.keypair.secretKey);
+  }
+  
 
   /**
    * Return the signature for the provided data using Ed25519.
