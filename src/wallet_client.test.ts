@@ -35,14 +35,14 @@ async function setupAccount() {
   if(alice) return;
   try{
     alice = await apis.createWallet();
-    aliceAccount = await WalletClient.getAccountFromMetaData(
+    aliceAccount = await WalletClient.fromDerivePath(
       alice.code,
     );
     await apis.airdrop(aliceAccount.getPublicKey().toSuiAddress());
   }catch(err){
     const mnemonic = "arena nothing skate then sport huge fence era cheese client powder tackle"
     alice = await apis.importWallet(mnemonic);
-    aliceAccount = await WalletClient.getAccountFromMetaData(mnemonic)
+    aliceAccount = await WalletClient.fromDerivePath(mnemonic)
   }
 }
 
