@@ -3,7 +3,7 @@
 
 import nacl from 'tweetnacl';
 import { Base64DataBuffer } from '../serialization/base64';
-import { Keypair } from './keypair';
+import type { ExportedKeypair, Keypair } from './keypair';
 import { Ed25519PublicKey } from './ed25519-publickey';
 import { SignatureScheme } from './publickey';
 import { isValidHardenedPath, mnemonicToSeedHex } from './mnemonics';
@@ -114,13 +114,6 @@ export class Ed25519Keypair implements Keypair {
   }
 
   /**
-   * The secret key for this Ed25519 keypair
-   */
-  getSecretKey(): string {
-    return toB64(this.keypair.secretKey);
-  }
-
-  /**
    * Return the signature for the provided data using Ed25519.
    */
   signData(data: Base64DataBuffer): Base64DataBuffer {
@@ -158,6 +151,7 @@ export class Ed25519Keypair implements Keypair {
         : '0x' + privateKeyHex,
     };
   }
+
   /**
    * Derive Ed25519 keypair from mnemonics and path. The mnemonics must be normalized
    * and validated against the english wordlist.
@@ -181,5 +175,12 @@ export class Ed25519Keypair implements Keypair {
     fullPrivateKey.set(pubkey, 32);
 
     return new Ed25519Keypair({ publicKey: pubkey, secretKey: fullPrivateKey });
+  }
+
+  export(): ExportedKeypair {
+    return {
+      schema: 'ED25519',
+      privateKey: toB64(this.keypair.secretKey),
+    };
   }
 }

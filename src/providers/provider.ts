@@ -1,10 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { SignatureScheme } from '../cryptography/publickey';
+import { PublicKey, SignatureScheme } from '../cryptography/publickey';
 import { HttpHeaders } from '../rpc/client';
+import { Base64DataBuffer } from '../serialization/base64';
 import {
-  CoinDenominationInfoResponse,
   GetObjectDataResponse,
   SuiObjectInfo,
   GatewayTxSeqNumber,
@@ -32,6 +32,7 @@ import {
   FaucetResponse,
   Order,
   TransactionEffects,
+  CoinMetadata,
 } from '../types';
 
 ///////////////////////////////
@@ -45,6 +46,15 @@ export abstract class Provider {
    * connected to, or undefined if any error occurred
    */
   abstract getRpcApiVersion(): Promise<RpcApiVersion | undefined>;
+
+  /**
+   * Fetch CoinMetadata for a given coin type
+   *
+   * @param coinType fully qualified type names for the coin (e.g.,
+   * 0x168da5bf1f48dafc111b0a488fa454aca95e0b5e::usdc::USDC)
+   *
+   */
+  abstract getCoinMetadata(coinType: string): Promise<CoinMetadata>;
 
   // Faucet
   /**
@@ -114,25 +124,6 @@ export abstract class Provider {
   ): Promise<GetObjectDataResponse[]>;
 
   /**
-   * Method to look up denomination of a specific type of coin.
-   * TODO: now only SUI coins are supported, will scale to other types
-   * based on their definitions in Move.
-   *
-   * @param coin_type coin type, e.g., '0x2::sui::SUI'
-   * @return denomination info of the coin including,
-   * coin type, the same as input coin type
-   * basic unit, the min unit of the coin, e.g., MIST;
-   * canonical unit, the commonly used unit, e.g., SUI;
-   * denomination, the value of 1 canonical over 1 basic unit,
-   * for example 1_000_000_000 = 1 SUI / 1 MIST;
-   * decimal number, the number of zeros in the denomination,
-   * e.g., 9 here for SUI coin.
-   */
-  abstract getCoinDenominationInfo(
-    coin_type: string
-  ): CoinDenominationInfoResponse;
-
-  /**
    * Get details about an object
    */
   abstract getObject(objectId: string): Promise<GetObjectDataResponse>;
@@ -176,10 +167,10 @@ export abstract class Provider {
    * Gateway
    */
   abstract executeTransaction(
-    txnBytes: string,
+    txnBytes: Base64DataBuffer,
     signatureScheme: SignatureScheme,
-    signature: string,
-    pubkey: string,
+    signature: Base64DataBuffer,
+    pubkey: PublicKey,
     requestType: ExecuteTransactionRequestType
   ): Promise<SuiExecuteTransactionResponse>;
 
@@ -235,10 +226,10 @@ export abstract class Provider {
    * @param order - event query ordering
    */
   abstract getEvents(
-      query: EventQuery,
-      cursor: EventId | null,
-      limit: number | null,
-      order: Order,
+    query: EventQuery,
+    cursor: EventId | null,
+    limit: number | null,
+    order: Order
   ): Promise<PaginatedEvents>;
 
   /**
