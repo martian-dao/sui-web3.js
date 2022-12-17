@@ -326,14 +326,14 @@ export class WalletClient {
         if (transactionData.effects.status.status === 'success') {
           const events = transactionData.effects.events;
           const coinBalanceReceiveEvents = events?.filter(
-            (event) =>
+            (event:any) =>
               event.coinBalanceChange &&
               event.coinBalanceChange.owner?.AddressOwner === address &&
               event.coinBalanceChange.changeType !== 'Gas' &&
               event.coinBalanceChange.amount >= 0
           );
           const coinBalanceSendEvents = events?.filter(
-            (event) =>
+            (event:any) =>
               event.coinBalanceChange &&
               event.coinBalanceChange.sender === address &&
               event.coinBalanceChange.changeType !== 'Gas' &&
@@ -341,9 +341,9 @@ export class WalletClient {
           );
 
           const transferEvents: any = events?.filter(
-            (event) => event.transferObject
+            (event:any) => event.transferObject
           );
-          const moveEvents: any = events?.filter((event) => event.moveEvent);
+          const moveEvents: any = events?.filter((event:any) => event.moveEvent);
 
           let totalCoinBalanceChange: number = 0;
           let changeType: any = {
@@ -354,7 +354,7 @@ export class WalletClient {
             changeTextSuffix: '',
           };
 
-          coinBalanceReceiveEvents?.forEach((event) => {
+          coinBalanceReceiveEvents?.forEach((event:any) => {
             totalCoinBalanceChange += event.coinBalanceChange.amount;
             if (!changeType.type) {
               if (event.coinBalanceChange.sender === AIRDROP_SENDER) {
@@ -381,7 +381,7 @@ export class WalletClient {
             }
           });
 
-          coinBalanceSendEvents?.forEach((event) => {
+          coinBalanceSendEvents?.forEach((event:any) => {
             totalCoinBalanceChange += event.coinBalanceChange.amount;
             if (!changeType.type) {
               changeType = {
