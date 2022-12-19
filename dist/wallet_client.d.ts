@@ -73,7 +73,6 @@ export declare class WalletClient {
         decimals: number;
         coinTypeArg: string;
     }[]>;
-    generateTransaction(address: SuiAddress, tx: SignableTransaction | string | Base64DataBuffer): Promise<Base64DataBuffer>;
     /**
      * Dry run a transaction and return the result.
      * @param address address of the account
@@ -86,6 +85,6 @@ export declare class WalletClient {
     getNfts(address: SuiAddress): Promise<GetObjectDataResponse[]>;
     mintNfts(suiAccount: Ed25519Keypair, name?: string, description?: string, imageUrl?: string): Promise<import("./types").SuiExecuteTransactionResponse>;
     transferNft(suiAccount: Ed25519Keypair, nftId: string, recipientID: string): Promise<import("./types").SuiExecuteTransactionResponse>;
-    static getAccountFromMetaData(mnemonic: string, metadata?: AccountMetaData): any;
+    static getAccountFromMetaData(mnemonic: string, metadata: AccountMetaData): any;
 }
 //# sourceMappingURL=wallet_client.d.ts.map

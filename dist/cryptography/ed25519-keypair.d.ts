@@ -1,5 +1,5 @@
 import { Base64DataBuffer } from '../serialization/base64';
-import { Keypair } from './keypair';
+import type { ExportedKeypair, Keypair } from './keypair';
 import { Ed25519PublicKey } from './ed25519-publickey';
 import { SignatureScheme } from './publickey';
 export declare const DEFAULT_ED25519_DERIVATION_PATH = "m/44'/784'/0'/0'/0'";
@@ -79,5 +79,6 @@ export declare class Ed25519Keypair implements Keypair {
      * be compliant to SLIP-0010 in form m/44'/784'/{account_index}'/{change_index}'/{address_index}'.
      */
     static deriveKeypair(mnemonics: string, path?: string): Ed25519Keypair;
+    export(): ExportedKeypair;
 }
 //# sourceMappingURL=ed25519-keypair.d.ts.map

@@ -1,5 +1,5 @@
 import { Base64DataBuffer } from '../serialization/base64';
-import { Keypair } from './keypair';
+import type { ExportedKeypair, Keypair } from './keypair';
 import { PublicKey, SignatureScheme } from './publickey';
 export declare const DEFAULT_SECP256K1_DERIVATION_PATH = "m/54'/784'/0'/0/0";
 /**
@@ -66,5 +66,6 @@ export declare class Secp256k1Keypair implements Keypair {
      * be compliant to BIP-32 in form m/54'/784'/{account_index}'/{change_index}/{address_index}.
      */
     static deriveKeypair(path: string, mnemonics: string): Secp256k1Keypair;
+    export(): ExportedKeypair;
 }
 //# sourceMappingURL=secp256k1-keypair.d.ts.map

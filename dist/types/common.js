@@ -2,16 +2,32 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.normalizeSuiObjectId = exports.normalizeSuiAddress = exports.isValidSuiObjectId = exports.isValidSuiAddress = exports.SUI_ADDRESS_LENGTH = exports.isValidTransactionDigest = void 0;
+exports.generateTransactionDigest = exports.normalizeSuiObjectId = exports.normalizeSuiAddress = exports.isValidSuiObjectId = exports.isValidSuiAddress = exports.SUI_ADDRESS_LENGTH = exports.isValidTransactionDigest = void 0;
+const base58_1 = require("../serialization/base58");
+const sui_bcs_1 = require("./sui-bcs");
+const publickey_1 = require("../cryptography/publickey");
+const hash_1 = require("../cryptography/hash");
+const ed25519_publickey_1 = require("../cryptography/ed25519-publickey");
+const secp256k1_publickey_1 = require("../cryptography/secp256k1-publickey");
 const base64_1 = require("../serialization/base64");
 // source of truth is
 // https://github.com/MystenLabs/sui/blob/acb2b97ae21f47600e05b0d28127d88d0725561d/crates/sui-types/src/base_types.rs#L171
 const TX_DIGEST_LENGTH = 32;
-// taken from https://rgxdb.com/r/1NUN74O6
-const VALID_BASE64_REGEX = /^(?:[a-zA-Z0-9+\/]{4})*(?:|(?:[a-zA-Z0-9+\/]{3}=)|(?:[a-zA-Z0-9+\/]{2}==)|(?:[a-zA-Z0-9+\/]{1}===))$/;
-function isValidTransactionDigest(value) {
-    return (new base64_1.Base64DataBuffer(value).getLength() === TX_DIGEST_LENGTH &&
-        VALID_BASE64_REGEX.test(value));
+/** Returns whether the tx digest is valid based on the serialization format */
+function isValidTransactionDigest(value, serializationFmt) {
+    let buffer;
+    try {
+        if (serializationFmt === 'base58') {
+            buffer = new base58_1.Base58DataBuffer(value);
+        }
+        else {
+            buffer = new base64_1.Base64DataBuffer(value);
+        }
+        return buffer.getLength() === TX_DIGEST_LENGTH;
+    }
+    catch (e) {
+        return false;
+    }
 }
 exports.isValidTransactionDigest = isValidTransactionDigest;
 // TODO - can we automatically sync this with rust length definition?
@@ -51,6 +67,56 @@ function normalizeSuiObjectId(value, forceAdd0x = false) {
     return normalizeSuiAddress(value, forceAdd0x);
 }
 exports.normalizeSuiObjectId = normalizeSuiObjectId;
+/**
+ * Generate transaction digest.
+ *
+ * @param data transaction data
+ * @param signatureScheme signature scheme
+ * @param signature signature as a base64 string
+ * @param publicKey public key
+ */
+function generateTransactionDigest(data, signatureScheme, signature, publicKey, serializationFmt, excludeSig = false) {
+    const signatureBytes = (typeof signature === 'string' ? new base64_1.Base64DataBuffer(signature) : signature).getData();
+    let pk;
+    switch (signatureScheme) {
+        case 'ED25519':
+            pk =
+                publicKey instanceof ed25519_publickey_1.Ed25519PublicKey
+                    ? publicKey
+                    : new ed25519_publickey_1.Ed25519PublicKey(publicKey);
+            break;
+        case 'Secp256k1':
+            pk =
+                publicKey instanceof secp256k1_publickey_1.Secp256k1PublicKey
+                    ? publicKey
+                    : new secp256k1_publickey_1.Secp256k1PublicKey(publicKey);
+    }
+    const publicKeyBytes = pk.toBytes();
+    const schemeByte = new Uint8Array([
+        publickey_1.SIGNATURE_SCHEME_TO_FLAG[signatureScheme],
+    ]);
+    const txSignature = new Uint8Array(1 + signatureBytes.length + publicKeyBytes.length);
+    txSignature.set(schemeByte);
+    txSignature.set(signatureBytes, 1);
+    txSignature.set(publicKeyBytes, 1 + signatureBytes.length);
+    const senderSignedData = {
+        data,
+        txSignature,
+    };
+    const senderSignedDataBytes = sui_bcs_1.bcs
+        .ser('SenderSignedData', senderSignedData)
+        .toBytes();
+    let hash;
+    if (excludeSig) {
+        const txBytes = sui_bcs_1.bcs.ser('TransactionData', data).toBytes();
+        hash = (0, hash_1.sha256Hash)('TransactionData', txBytes);
+    }
+    else {
+        hash = (0, hash_1.sha256Hash)('SenderSignedData', senderSignedDataBytes);
+    }
+    return serializationFmt === 'base58' ? new base58_1.Base58DataBuffer(hash).toString() : new base64_1.Base64DataBuffer(hash).toString();
+}
+exports.generateTransactionDigest = generateTransactionDigest;
 function isHex(value) {
     return /^(0x|0X)?[a-fA-F0-9]+$/.test(value) && value.length % 2 === 0;
 }

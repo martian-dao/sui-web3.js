@@ -1,4 +1,5 @@
 import { BCS } from '@mysten/bcs';
+import { Base64DataBuffer } from '../serialization/base64';
 import { SuiObjectRef } from './objects';
 declare const bcs: BCS;
 /**
@@ -191,5 +192,7 @@ export declare type TransactionData = {
     kind: TransactionKind;
     gasPayment: SuiObjectRef;
 };
+export declare const TRANSACTION_DATA_TYPE_TAG: number[];
+export declare function deserializeTransactionBytesToTransactionData(useIntentSigning: boolean, bytes: Base64DataBuffer): TransactionData;
 export { bcs };
 //# sourceMappingURL=sui-bcs.d.ts.map

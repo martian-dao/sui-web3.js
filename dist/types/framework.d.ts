@@ -2,20 +2,27 @@ import { GetObjectDataResponse, SuiMoveObject, SuiObjectInfo, SuiObject, SuiData
 import { SuiAddress } from './common';
 import { Option } from './option';
 import { StructTag } from './sui-bcs';
-import { SignerWithProvider } from '../signers/signer-with-provider';
+import { UnserializedSignableTransaction } from '../signers/txn-data-serializers/txn-data-serializer';
 export declare const SUI_FRAMEWORK_ADDRESS = "0x2";
 export declare const MOVE_STDLIB_ADDRESS = "0x1";
 export declare const OBJECT_MODULE_NAME = "object";
 export declare const UID_STRUCT_NAME = "UID";
 export declare const ID_STRUCT_NAME = "ID";
 export declare const SUI_TYPE_ARG: string;
-export declare const COIN_TYPE: string;
 export declare const PAY_MODULE_NAME = "pay";
 export declare const PAY_SPLIT_COIN_VEC_FUNC_NAME = "split_vec";
 export declare const PAY_JOIN_COIN_FUNC_NAME = "join";
 export declare const COIN_TYPE_ARG_REGEX: RegExp;
 declare type ObjectData = ObjectDataFull | SuiObjectInfo;
 declare type ObjectDataFull = GetObjectDataResponse | SuiMoveObject;
+export declare type CoinMetadata = {
+    decimals: number;
+    name: string;
+    symbol: string;
+    description: string;
+    iconUrl: string | null;
+    id: ObjectId | null;
+};
 /**
  * Utility class for 0x2::coin
  * as defined in https://github.com/MystenLabs/sui/blob/ca9046fd8b1a9e8634a4b74b0e7dabdc7ea54475/sui_programmability/framework/sources/Coin.move#L4
@@ -64,27 +71,15 @@ export declare class Coin {
     static getZero(): bigint;
     private static getType;
     /**
-     * Creates and executes a transaction to transfer coins to a recipient address.
-     * @param signer User's signer
-     * @param allCoins All the coins that are owned by the user. Can be only the relevant type of coins for the transfer, Sui for gas and the coins with the same type as the type to send.
-     * @param coinTypeArg The coin type argument (Coin<T> the T) of the coin to send
-     * @param amountToSend Total amount to send to recipient
-     * @param recipient Recipient's address
-     * @param gasBudget Gas budget for the tx
-     * @throws in case of insufficient funds, network errors etc
-     */
-    static transfer(signer: SignerWithProvider, allCoins: SuiMoveObject[], coinTypeArg: string, amountToSend: bigint, recipient: SuiAddress, gasBudget: number): Promise<import("./transactions").SuiExecuteTransactionResponse>;
-    /**
      * Create a new transaction for sending coins ready to be signed and executed.
-     * @param signer User's signer
-     * @param allCoins All the coins that are owned by the user. Can be only the relevant type of coins for the transfer, Sui for gas and the coins with the same type as the type to send.
+     * @param allCoins All the coins that are owned by the sender. Can be only the relevant type of coins for the transfer, Sui for gas and the coins with the same type as the type to send.
      * @param coinTypeArg The coin type argument (Coin<T> the T) of the coin to send
      * @param amountToSend Total amount to send to recipient
      * @param recipient Recipient's address
      * @param gasBudget Gas budget for the tx
-     * @throws in case of insufficient funds, network errors etc
+     * @throws in case of insufficient funds
      */
-    private static newTransferTx;
+    static newPayTransaction(allCoins: SuiMoveObject[], coinTypeArg: string, amountToSend: bigint, recipient: SuiAddress, gasBudget: number): Promise<UnserializedSignableTransaction>;
 }
 export declare type DelegationData = SuiMoveObject & Pick<SuiData, 'dataType'> & {
     type: '0x2::delegation::Delegation';

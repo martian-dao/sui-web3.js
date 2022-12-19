@@ -26,7 +26,6 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var src_exports = {};
 __export(src_exports, {
   Base64DataBuffer: () => Base64DataBuffer,
-  COIN_TYPE: () => COIN_TYPE,
   COIN_TYPE_ARG_REGEX: () => COIN_TYPE_ARG_REGEX,
   Coin: () => Coin,
   DEFAULT_ED25519_DERIVATION_PATH: () => DEFAULT_ED25519_DERIVATION_PATH,
@@ -58,13 +57,17 @@ __export(src_exports, {
   Secp256k1Keypair: () => Secp256k1Keypair,
   Secp256k1PublicKey: () => Secp256k1PublicKey,
   SignerWithProvider: () => SignerWithProvider,
+  TRANSACTION_DATA_TYPE_TAG: () => TRANSACTION_DATA_TYPE_TAG,
   UID_STRUCT_NAME: () => UID_STRUCT_NAME,
   WalletClient: () => WalletClient,
   bcs: () => bcs,
   bytesEqual: () => bytesEqual,
+  deserializeTransactionBytesToTransactionData: () => deserializeTransactionBytesToTransactionData,
   extractMutableReference: () => extractMutableReference,
   extractReference: () => extractReference,
   extractStructTag: () => extractStructTag,
+  fromExportedKeypair: () => fromExportedKeypair,
+  generateTransactionDigest: () => generateTransactionDigest,
   getCertifiedTransaction: () => getCertifiedTransaction,
   getChangeEpochTransaction: () => getChangeEpochTransaction,
   getCoinAfterMerge: () => getCoinAfterMerge,
@@ -122,7 +125,7 @@ __export(src_exports, {
   isCallArg: () => isCallArg,
   isCertifiedTransaction: () => isCertifiedTransaction,
   isCoinBalanceChangeEvent: () => isCoinBalanceChangeEvent,
-  isCoinDenominationInfoResponse: () => isCoinDenominationInfoResponse,
+  isCoinMetadata: () => isCoinMetadata,
   isDelegationData: () => isDelegationData,
   isDelegationSuiObject: () => isDelegationSuiObject,
   isDeleteObjectEvent: () => isDeleteObjectEvent,
@@ -212,6 +215,7 @@ __export(src_exports, {
   isSuiParsedPublishResponse: () => isSuiParsedPublishResponse,
   isSuiParsedSplitCoinResponse: () => isSuiParsedSplitCoinResponse,
   isSuiParsedTransactionResponse: () => isSuiParsedTransactionResponse,
+  isSuiTransactionAuthSignersResponse: () => isSuiTransactionAuthSignersResponse,
   isSuiTransactionData: () => isSuiTransactionData,
   isSuiTransactionKind: () => isSuiTransactionKind,
   isSuiTransactionResponse: () => isSuiTransactionResponse,
@@ -238,7 +242,8 @@ __export(src_exports, {
   mnemonicToSeedHex: () => mnemonicToSeedHex,
   normalizeSuiAddress: () => normalizeSuiAddress,
   normalizeSuiObjectId: () => normalizeSuiObjectId,
-  parseVersionFromString: () => parseVersionFromString
+  parseVersionFromString: () => parseVersionFromString,
+  versionToString: () => versionToString
 });
 module.exports = __toCommonJS(src_exports);
 
@@ -501,6 +506,12 @@ var Ed25519Keypair = class {
     fullPrivateKey.set(pubkey, 32);
     return new Ed25519Keypair({ publicKey: pubkey, secretKey: fullPrivateKey });
   }
+  export() {
+    return {
+      schema: "ED25519",
+      privateKey: (0, import_bcs5.toB64)(this.keypair.secretKey)
+    };
+  }
 };
 
 // src/cryptography/secp256k1-keypair.ts
@@ -550,6 +561,7 @@ var Secp256k1PublicKey = class {
 // src/cryptography/secp256k1-keypair.ts
 var import_secp256k1 = require("@noble/secp256k1");
 var import_bip32 = require("@scure/bip32");
+var import_bcs7 = require("@mysten/bcs");
 var DEFAULT_SECP256K1_DERIVATION_PATH = "m/54'/784'/0'/0/0";
 secp.utils.hmacSha256Sync = (key, ...msgs) => {
   const h = import_hmac2.hmac.create(import_sha256.sha256, key);
@@ -618,7 +630,27 @@ var Secp256k1Keypair = class {
       secretKey: key.privateKey
     });
   }
+  export() {
+    return {
+      schema: "Secp256k1",
+      privateKey: (0, import_bcs7.toB64)(this.keypair.secretKey)
+    };
+  }
 };
+
+// src/cryptography/keypair.ts
+var import_bcs8 = require("@mysten/bcs");
+function fromExportedKeypair(keypair) {
+  const secretKey = (0, import_bcs8.fromB64)(keypair.privateKey);
+  switch (keypair.schema) {
+    case "ED25519":
+      return Ed25519Keypair.fromSecretKey(secretKey);
+    case "Secp256k1":
+      return Secp256k1Keypair.fromSecretKey(secretKey);
+    default:
+      throw new Error(`Invalid keypair schema ${keypair.schema}`);
+  }
+}
 
 // src/providers/provider.ts
 var Provider = class {
@@ -800,9 +832,6 @@ function isSuiData(obj, _argumentName) {
 }
 function isSuiMoveObject(obj, _argumentName) {
   return (obj !== null && typeof obj === "object" || typeof obj === "function") && isTransactionDigest(obj.type) && isObjectContentFields(obj.fields) && typeof obj.has_public_transfer === "boolean";
-}
-function isCoinDenominationInfoResponse(obj, _argumentName) {
-  return (obj !== null && typeof obj === "object" || typeof obj === "function") && isTransactionDigest(obj.coinType) && isTransactionDigest(obj.basicUnit) && isSuiMoveTypeParameterIndex(obj.decimalNumber);
 }
 function isSuiMovePackage(obj, _argumentName) {
   return (obj !== null && typeof obj === "object" || typeof obj === "function") && isMovePackageContent(obj.disassembled);
@@ -1052,12 +1081,19 @@ function isTransactionEffects(obj, _argumentName) {
     (e) => isSuiObjectRef(e)
   ) && Array.isArray(obj.wrapped) && obj.wrapped.every(
     (e) => isSuiObjectRef(e)
-  ) && isOwnedObjectRef(obj.gasObject) && Array.isArray(obj.events) && Array.isArray(obj.dependencies) && obj.dependencies.every(
+  ) && isOwnedObjectRef(obj.gasObject) && Array.isArray(obj.events) && obj.events.every(
+    (e) => isSuiEvent(e)
+  ) && Array.isArray(obj.dependencies) && obj.dependencies.every(
     (e) => isTransactionDigest(e)
   );
 }
 function isSuiTransactionResponse(obj, _argumentName) {
   return (obj !== null && typeof obj === "object" || typeof obj === "function") && isCertifiedTransaction(obj.certificate) && isTransactionEffects(obj.effects) && isSuiMoveTypeParameterIndex(obj.timestamp_ms) && isSuiParsedTransactionResponse(obj.parsed_data);
+}
+function isSuiTransactionAuthSignersResponse(obj, _argumentName) {
+  return (obj !== null && typeof obj === "object" || typeof obj === "function") && Array.isArray(obj.signers) && obj.signers.every(
+    (e) => isTransactionDigest(e)
+  );
 }
 function isSuiCertifiedTransactionEffects(obj, _argumentName) {
   return (obj !== null && typeof obj === "object" || typeof obj === "function") && isTransactionEffects(obj.effects);
@@ -1123,6 +1159,9 @@ function isSuiPackage(obj, _argumentName) {
 }
 function isSuiParsedTransactionResponse(obj, _argumentName) {
   return (obj !== null && typeof obj === "object" || typeof obj === "function") && isSuiParsedSplitCoinResponse(obj.SplitCoin) || (obj !== null && typeof obj === "object" || typeof obj === "function") && isSuiParsedMergeCoinResponse(obj.MergeCoin) || (obj !== null && typeof obj === "object" || typeof obj === "function") && isSuiParsedPublishResponse(obj.Publish);
+}
+function isCoinMetadata(obj, _argumentName) {
+  return (obj !== null && typeof obj === "object" || typeof obj === "function") && isSuiMoveTypeParameterIndex(obj.decimals) && isTransactionDigest(obj.name) && isTransactionDigest(obj.symbol) && isTransactionDigest(obj.description) && isTransactionDigest(obj.iconUrl) && isTransactionDigest(obj.id);
 }
 function isDelegationData(obj, _argumentName) {
   return isSuiMoveObject(obj) && (obj !== null && typeof obj === "object" || typeof obj === "function") && isObjectType(obj.dataType) && (obj !== null && typeof obj === "object" || typeof obj === "function") && obj.type === "0x2::delegation::Delegation" && (obj.fields !== null && typeof obj.fields === "object" || typeof obj.fields === "function") && (isSuiMoveTypeParameterIndex(obj.fields.active_delegation) || (obj.fields.active_delegation !== null && typeof obj.fields.active_delegation === "object" || typeof obj.fields.active_delegation === "function") && (obj.fields.active_delegation.fields !== null && typeof obj.fields.active_delegation.fields === "object" || typeof obj.fields.active_delegation.fields === "function") && obj.fields.active_delegation.fields.vec === "" && isTransactionDigest(obj.fields.active_delegation.type)) && isSuiMoveTypeParameterIndex(obj.fields.delegate_amount) && isSuiMoveTypeParameterIndex(obj.fields.next_reward_unclaimed_epoch) && isTransactionDigest(obj.fields.validator_address) && (obj.fields.info !== null && typeof obj.fields.info === "object" || typeof obj.fields.info === "function") && isTransactionDigest(obj.fields.info.id) && isSuiMoveTypeParameterIndex(obj.fields.info.version) && (isSuiMoveObject(obj.fields.coin_locked_until_epoch) || (obj.fields.coin_locked_until_epoch !== null && typeof obj.fields.coin_locked_until_epoch === "object" || typeof obj.fields.coin_locked_until_epoch === "function") && (obj.fields.coin_locked_until_epoch.fields !== null && typeof obj.fields.coin_locked_until_epoch.fields === "object" || typeof obj.fields.coin_locked_until_epoch.fields === "function") && obj.fields.coin_locked_until_epoch.fields.vec === "" && isTransactionDigest(obj.fields.coin_locked_until_epoch.type)) && (isSuiMoveTypeParameterIndex(obj.fields.ending_epoch) || (obj.fields.ending_epoch !== null && typeof obj.fields.ending_epoch === "object" || typeof obj.fields.ending_epoch === "function") && (obj.fields.ending_epoch.fields !== null && typeof obj.fields.ending_epoch.fields === "object" || typeof obj.fields.ending_epoch.fields === "function") && obj.fields.ending_epoch.fields.vec === "" && isTransactionDigest(obj.fields.ending_epoch.type));
@@ -1207,11 +1246,189 @@ function isFaucetResponse(obj, _argumentName) {
   return (obj !== null && typeof obj === "object" || typeof obj === "function") && isFaucetCoinInfo(obj.transferred_gas_objects) && isTransactionDigest(obj.error);
 }
 
+// src/serialization/base58.ts
+var import_bs58 = __toESM(require("bs58"));
+var Base58DataBuffer = class {
+  constructor(data) {
+    if (typeof data === "string") {
+      this.data = import_bs58.default.decode(data);
+    } else {
+      this.data = data;
+    }
+  }
+  getData() {
+    return this.data;
+  }
+  getLength() {
+    return this.data.length;
+  }
+  toString() {
+    return import_bs58.default.encode(this.data);
+  }
+};
+
+// src/types/sui-bcs.ts
+var import_bcs9 = require("@mysten/bcs");
+var bcs = new import_bcs9.BCS((0, import_bcs9.getSuiMoveConfig)());
+bcs.registerType(
+  "utf8string",
+  (writer, str) => {
+    const bytes = Array.from(new TextEncoder().encode(str));
+    return writer.writeVec(bytes, (writer2, el) => writer2.write8(el));
+  },
+  (reader) => {
+    let bytes = reader.readVec((reader2) => reader2.read8());
+    return new TextDecoder().decode(new Uint8Array(bytes));
+  }
+).registerType(
+  "ObjectDigest",
+  (writer, str) => {
+    let bytes = Array.from((0, import_bcs9.decodeStr)(str, "base64"));
+    return writer.writeVec(bytes, (writer2, el) => writer2.write8(el));
+  },
+  (reader) => {
+    let bytes = reader.readVec((reader2) => reader2.read8());
+    return (0, import_bcs9.encodeStr)(new Uint8Array(bytes), "base64");
+  }
+);
+bcs.registerStructType("SuiObjectRef", {
+  objectId: "address",
+  version: "u64",
+  digest: "ObjectDigest"
+});
+bcs.registerStructType("TransferObjectTx", {
+  recipient: "address",
+  object_ref: "SuiObjectRef"
+});
+bcs.registerStructType("PayTx", {
+  coins: "vector<SuiObjectRef>",
+  recipients: "vector<address>",
+  amounts: "vector<u64>"
+});
+bcs.registerStructType("PaySuiTx", {
+  coins: "vector<SuiObjectRef>",
+  recipients: "vector<address>",
+  amounts: "vector<u64>"
+});
+bcs.registerStructType("PayAllSuiTx", {
+  coins: "vector<SuiObjectRef>",
+  recipient: "address"
+});
+bcs.registerEnumType("Option<T>", {
+  None: null,
+  Some: "T"
+});
+bcs.registerStructType("TransferSuiTx", {
+  recipient: "address",
+  amount: "Option<u64>"
+});
+bcs.registerStructType("PublishTx", {
+  modules: "vector<vector<u8>>"
+});
+bcs.registerStructType("SharedObjectRef", {
+  objectId: "address",
+  initialSharedVersion: "u64"
+}).registerEnumType("ObjectArg", {
+  ImmOrOwned: "SuiObjectRef",
+  Shared: "SharedObjectRef"
+}).registerEnumType("CallArg", {
+  Pure: "vector<u8>",
+  Object: "ObjectArg",
+  ObjVec: "vector<ObjectArg>"
+});
+bcs.registerEnumType("TypeTag", {
+  bool: null,
+  u8: null,
+  u64: null,
+  u128: null,
+  address: null,
+  signer: null,
+  vector: "TypeTag",
+  struct: "StructTag",
+  u16: null,
+  u32: null,
+  u256: null
+}).registerStructType("StructTag", {
+  address: "address",
+  module: "string",
+  name: "string",
+  typeParams: "vector<TypeTag>"
+});
+bcs.registerStructType("MoveCallTx", {
+  package: "SuiObjectRef",
+  module: "string",
+  function: "string",
+  typeArguments: "vector<TypeTag>",
+  arguments: "vector<CallArg>"
+});
+bcs.registerEnumType("Transaction", {
+  TransferObject: "TransferObjectTx",
+  Publish: "PublishTx",
+  Call: "MoveCallTx",
+  TransferSui: "TransferSuiTx",
+  Pay: "PayTx",
+  PaySui: "PaySuiTx",
+  PayAllSui: "PayAllSuiTx"
+});
+bcs.registerEnumType("TransactionKind", {
+  Single: "Transaction",
+  Batch: "vector<Transaction>"
+});
+bcs.registerStructType("TransactionData", {
+  kind: "TransactionKind",
+  sender: "address",
+  gasPayment: "SuiObjectRef",
+  gasPrice: "u64",
+  gasBudget: "u64"
+});
+var TRANSACTION_DATA_TYPE_TAG = Array.from("TransactionData::").map(
+  (e) => e.charCodeAt(0)
+);
+function deserializeTransactionBytesToTransactionData(useIntentSigning, bytes) {
+  if (useIntentSigning) {
+    return bcs.de(
+      "TransactionData",
+      bytes.getData()
+    );
+  } else {
+    return bcs.de(
+      "TransactionData",
+      bytes.getData().slice(TRANSACTION_DATA_TYPE_TAG.length)
+    );
+  }
+}
+bcs.registerStructType("SenderSignedData", {
+  data: "TransactionData",
+  txSignature: "vector<u8>"
+});
+
+// src/cryptography/hash.ts
+var import_bcs10 = require("@mysten/bcs");
+var import_js_sha33 = __toESM(require("js-sha3"));
+function sha256Hash(typeTag, data) {
+  const hash = import_js_sha33.default.sha3_256.create();
+  const typeTagBytes = Array.from(`${typeTag}::`).map((e) => e.charCodeAt(0));
+  const dataWithTag = new Uint8Array(typeTagBytes.length + data.length);
+  dataWithTag.set(typeTagBytes);
+  dataWithTag.set(data, typeTagBytes.length);
+  hash.update(dataWithTag);
+  return (0, import_bcs10.fromHEX)(hash.hex());
+}
+
 // src/types/common.ts
 var TX_DIGEST_LENGTH = 32;
-var VALID_BASE64_REGEX = /^(?:[a-zA-Z0-9+\/]{4})*(?:|(?:[a-zA-Z0-9+\/]{3}=)|(?:[a-zA-Z0-9+\/]{2}==)|(?:[a-zA-Z0-9+\/]{1}===))$/;
-function isValidTransactionDigest(value) {
-  return new Base64DataBuffer(value).getLength() === TX_DIGEST_LENGTH && VALID_BASE64_REGEX.test(value);
+function isValidTransactionDigest(value, serializationFmt) {
+  let buffer;
+  try {
+    if (serializationFmt === "base58") {
+      buffer = new Base58DataBuffer(value);
+    } else {
+      buffer = new Base64DataBuffer(value);
+    }
+    return buffer.getLength() === TX_DIGEST_LENGTH;
+  } catch (e) {
+    return false;
+  }
 }
 var SUI_ADDRESS_LENGTH = 20;
 function isValidSuiAddress(value) {
@@ -1229,6 +1446,40 @@ function normalizeSuiAddress(value, forceAdd0x = false) {
 }
 function normalizeSuiObjectId(value, forceAdd0x = false) {
   return normalizeSuiAddress(value, forceAdd0x);
+}
+function generateTransactionDigest(data, signatureScheme, signature, publicKey, serializationFmt, excludeSig = false) {
+  const signatureBytes = (typeof signature === "string" ? new Base64DataBuffer(signature) : signature).getData();
+  let pk;
+  switch (signatureScheme) {
+    case "ED25519":
+      pk = publicKey instanceof Ed25519PublicKey ? publicKey : new Ed25519PublicKey(publicKey);
+      break;
+    case "Secp256k1":
+      pk = publicKey instanceof Secp256k1PublicKey ? publicKey : new Secp256k1PublicKey(publicKey);
+  }
+  const publicKeyBytes = pk.toBytes();
+  const schemeByte = new Uint8Array([
+    SIGNATURE_SCHEME_TO_FLAG[signatureScheme]
+  ]);
+  const txSignature = new Uint8Array(
+    1 + signatureBytes.length + publicKeyBytes.length
+  );
+  txSignature.set(schemeByte);
+  txSignature.set(signatureBytes, 1);
+  txSignature.set(publicKeyBytes, 1 + signatureBytes.length);
+  const senderSignedData = {
+    data,
+    txSignature
+  };
+  const senderSignedDataBytes = bcs.ser("SenderSignedData", senderSignedData).toBytes();
+  let hash;
+  if (excludeSig) {
+    const txBytes = bcs.ser("TransactionData", data).toBytes();
+    hash = sha256Hash("TransactionData", txBytes);
+  } else {
+    hash = sha256Hash("SenderSignedData", senderSignedDataBytes);
+  }
+  return serializationFmt === "base58" ? new Base58DataBuffer(hash).toString() : new Base64DataBuffer(hash).toString();
 }
 function isHex(value) {
   return /^(0x|0X)?[a-fA-F0-9]+$/.test(value) && value.length % 2 === 0;
@@ -1249,34 +1500,28 @@ function getObjectNotExistsResponse(resp) {
   return resp.status !== "NotExists" ? void 0 : resp.details;
 }
 function getObjectReference(resp) {
-  var _a;
-  return ((_a = getObjectExistsResponse(resp)) == null ? void 0 : _a.reference) || getObjectDeletedResponse(resp);
+  return getObjectExistsResponse(resp)?.reference || getObjectDeletedResponse(resp);
 }
 function getObjectId(data) {
-  var _a;
   if ("objectId" in data) {
     return data.objectId;
   }
-  return ((_a = getObjectReference(data)) == null ? void 0 : _a.objectId) ?? getObjectNotExistsResponse(data);
+  return getObjectReference(data)?.objectId ?? getObjectNotExistsResponse(data);
 }
 function getObjectVersion(data) {
-  var _a;
   if ("version" in data) {
     return data.version;
   }
-  return (_a = getObjectReference(data)) == null ? void 0 : _a.version;
+  return getObjectReference(data)?.version;
 }
 function getObjectType(resp) {
-  var _a;
-  return (_a = getObjectExistsResponse(resp)) == null ? void 0 : _a.data.dataType;
+  return getObjectExistsResponse(resp)?.data.dataType;
 }
 function getObjectPreviousTransactionDigest(resp) {
-  var _a;
-  return (_a = getObjectExistsResponse(resp)) == null ? void 0 : _a.previousTransaction;
+  return getObjectExistsResponse(resp)?.previousTransaction;
 }
 function getObjectOwner(resp) {
-  var _a;
-  return (_a = getObjectExistsResponse(resp)) == null ? void 0 : _a.owner;
+  return getObjectExistsResponse(resp)?.owner;
 }
 function getSharedObjectInitialVersion(resp) {
   const owner = getObjectOwner(resp);
@@ -1295,33 +1540,30 @@ function isImmutableObject(resp) {
   return owner === "Immutable";
 }
 function getMoveObjectType(resp) {
-  var _a;
-  return (_a = getMoveObject(resp)) == null ? void 0 : _a.type;
+  return getMoveObject(resp)?.type;
 }
 function getObjectFields(resp) {
-  var _a;
   if ("fields" in resp) {
     return resp.fields;
   }
-  return (_a = getMoveObject(resp)) == null ? void 0 : _a.fields;
+  return getMoveObject(resp)?.fields;
 }
 function getMoveObject(data) {
   const suiObject = "data" in data ? data : getObjectExistsResponse(data);
-  if ((suiObject == null ? void 0 : suiObject.data.dataType) !== "moveObject") {
+  if (suiObject?.data.dataType !== "moveObject") {
     return void 0;
   }
   return suiObject.data;
 }
 function hasPublicTransfer(data) {
-  var _a;
-  return ((_a = getMoveObject(data)) == null ? void 0 : _a.has_public_transfer) ?? false;
+  return getMoveObject(data)?.has_public_transfer ?? false;
 }
 function getMovePackageContent(data) {
   if ("disassembled" in data) {
     return data.disassembled;
   }
   const suiObject = getObjectExistsResponse(data);
-  if ((suiObject == null ? void 0 : suiObject.data.dataType) !== "package") {
+  if (suiObject?.data.dataType !== "package") {
     return void 0;
   }
   return suiObject.data.disassembled;
@@ -1420,23 +1662,19 @@ function getTransactionKindName(data) {
   return Object.keys(data)[0];
 }
 function getExecutionStatusType(data) {
-  var _a;
-  return (_a = getExecutionStatus(data)) == null ? void 0 : _a.status;
+  return getExecutionStatus(data)?.status;
 }
 function getExecutionStatus(data) {
-  var _a;
-  return (_a = getTransactionEffects(data)) == null ? void 0 : _a.status;
+  return getTransactionEffects(data)?.status;
 }
 function getExecutionStatusError(data) {
-  var _a;
-  return (_a = getExecutionStatus(data)) == null ? void 0 : _a.error;
+  return getExecutionStatus(data)?.error;
 }
 function getExecutionStatusGasSummary(data) {
-  var _a;
   if (isTransactionEffects(data)) {
     return data.gasUsed;
   }
-  return (_a = getTransactionEffects(data)) == null ? void 0 : _a.gasUsed;
+  return getTransactionEffects(data)?.gasUsed;
 }
 function getTotalGasUsed(data) {
   const gasSummary = getExecutionStatusGasSummary(data);
@@ -1449,12 +1687,10 @@ function getTransactionEffects(data) {
   return "EffectsCert" in data ? data.EffectsCert.effects.effects : void 0;
 }
 function getEvents(data) {
-  var _a;
-  return (_a = getTransactionEffects(data)) == null ? void 0 : _a.events;
+  return getTransactionEffects(data)?.events;
 }
 function getCreatedObjects(data) {
-  var _a;
-  return (_a = getTransactionEffects(data)) == null ? void 0 : _a.created;
+  return getTransactionEffects(data)?.created;
 }
 function getTimestampFromTransactionResponse(data) {
   return "timestamp_ms" in data ? data.timestamp_ms ?? void 0 : void 0;
@@ -1472,22 +1708,18 @@ function getParsedPublishResponse(data) {
   return parsed && "Publish" in parsed ? parsed.Publish : void 0;
 }
 function getCoinAfterMerge(data) {
-  var _a;
-  return (_a = getParsedMergeCoinResponse(data)) == null ? void 0 : _a.updatedCoin;
+  return getParsedMergeCoinResponse(data)?.updatedCoin;
 }
 function getCoinAfterSplit(data) {
-  var _a;
-  return (_a = getParsedSplitCoinResponse(data)) == null ? void 0 : _a.updatedCoin;
+  return getParsedSplitCoinResponse(data)?.updatedCoin;
 }
 function getNewlyCreatedCoinsAfterSplit(data) {
-  var _a;
-  return (_a = getParsedSplitCoinResponse(data)) == null ? void 0 : _a.newCoins;
+  return getParsedSplitCoinResponse(data)?.newCoins;
 }
 function getNewlyCreatedCoinRefsAfterSplit(data) {
-  var _a;
   if ("EffectsCert" in data) {
     const effects = data.EffectsCert.effects.effects;
-    return (_a = effects.created) == null ? void 0 : _a.map((c) => c.reference);
+    return effects.created?.map((c) => c.reference);
   }
   return void 0;
 }
@@ -1507,15 +1739,13 @@ var OBJECT_MODULE_NAME = "object";
 var UID_STRUCT_NAME = "UID";
 var ID_STRUCT_NAME = "ID";
 var SUI_TYPE_ARG = `${SUI_FRAMEWORK_ADDRESS}::sui::SUI`;
-var COIN_TYPE = `${SUI_FRAMEWORK_ADDRESS}::coin::Coin`;
 var PAY_MODULE_NAME = "pay";
 var PAY_SPLIT_COIN_VEC_FUNC_NAME = "split_vec";
 var PAY_JOIN_COIN_FUNC_NAME = "join";
 var COIN_TYPE_ARG_REGEX = /^0x2::coin::Coin<(.+)>$/;
 var Coin = class {
   static isCoin(data) {
-    var _a;
-    return ((_a = Coin.getType(data)) == null ? void 0 : _a.startsWith(COIN_TYPE)) ?? false;
+    return Coin.getType(data)?.match(COIN_TYPE_ARG_REGEX) != null;
   }
   static getCoinType(type) {
     const [, res] = type.match(COIN_TYPE_ARG_REGEX) ?? [];
@@ -1597,11 +1827,10 @@ var Coin = class {
     );
   }
   static getBalance(data) {
-    var _a;
     if (!Coin.isCoin(data)) {
       return void 0;
     }
-    const balance = (_a = getObjectFields(data)) == null ? void 0 : _a.balance;
+    const balance = getObjectFields(data)?.balance;
     return BigInt(balance);
   }
   static getZero() {
@@ -1613,62 +1842,48 @@ var Coin = class {
     }
     return data.type;
   }
-  static async transfer(signer, allCoins, coinTypeArg, amountToSend, recipient, gasBudget) {
-    const tx = await Coin.newTransferTx(
-      signer,
-      allCoins,
-      coinTypeArg,
-      amountToSend,
-      recipient,
-      gasBudget
-    );
-    return signer.signAndExecuteTransaction(tx);
-  }
-  static async newTransferTx(signer, allCoins, coinTypeArg, amountToSend, recipient, gasBudget) {
+  static async newPayTransaction(allCoins, coinTypeArg, amountToSend, recipient, gasBudget) {
     const isSuiTransfer = coinTypeArg === SUI_TYPE_ARG;
     const coinsOfTransferType = allCoins.filter(
       (aCoin) => Coin.getCoinTypeArg(aCoin) === coinTypeArg
     );
-    const totalAmountIncludingGas = amountToSend + BigInt(isSuiTransfer ? gasBudget : 0);
-    const inputCoinObjs = await Coin.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
-      coinsOfTransferType,
-      totalAmountIncludingGas
+    const coinsOfGas = isSuiTransfer ? coinsOfTransferType : allCoins.filter((aCoin) => Coin.isSUI(aCoin));
+    const gasCoin = Coin.selectCoinWithBalanceGreaterThanOrEqual(
+      coinsOfGas,
+      BigInt(gasBudget)
     );
-    if (!inputCoinObjs.length) {
+    if (!gasCoin) {
+      throw new Error(
+        `Unable to find a coin to cover the gas budget ${gasBudget}`
+      );
+    }
+    const totalAmountIncludingGas = amountToSend + BigInt(
+      isSuiTransfer ? BigInt(gasBudget) - BigInt(Coin.getBalance(gasCoin) || 0) : 0
+    );
+    const inputCoinObjs = totalAmountIncludingGas > 0 ? await Coin.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
+      coinsOfTransferType,
+      totalAmountIncludingGas,
+      isSuiTransfer ? [Coin.getID(gasCoin)] : []
+    ) : [];
+    if (totalAmountIncludingGas > 0 && !inputCoinObjs.length) {
       const totalBalanceOfTransferType = Coin.totalBalance(coinsOfTransferType);
       const suggestedAmountToSend = totalBalanceOfTransferType - BigInt(isSuiTransfer ? gasBudget : 0);
       throw new Error(
         `Coin balance ${totalBalanceOfTransferType} is not sufficient to cover the transfer amount ${amountToSend}. Try reducing the transfer amount to ${suggestedAmountToSend}.`
       );
     }
-    if (!isSuiTransfer) {
-      const allGasCoins = allCoins.filter((aCoin) => Coin.isSUI(aCoin));
-      const gasCoin = Coin.selectCoinWithBalanceGreaterThanOrEqual(
-        allGasCoins,
-        BigInt(gasBudget)
-      );
-      if (!gasCoin) {
-        throw new Error(
-          `Unable to find a coin to cover the gas budget ${gasBudget}`
-        );
-      }
-    }
-    const signerAddress = await signer.getAddress();
-    const inputCoins = inputCoinObjs.map(Coin.getID);
-    const txCommon = {
-      inputCoins,
-      recipients: [recipient],
-      amounts: [Number(amountToSend)],
-      gasBudget: Number(gasBudget)
-    };
     if (isSuiTransfer) {
-      return signer.serializer.newPaySui(signerAddress, {
-        ...txCommon
-      });
+      inputCoinObjs.unshift(gasCoin);
     }
-    return signer.serializer.newPay(signerAddress, {
-      ...txCommon
-    });
+    return {
+      kind: isSuiTransfer ? "paySui" : "pay",
+      data: {
+        inputCoins: inputCoinObjs.map(Coin.getID),
+        recipients: [recipient],
+        amounts: [Number(amountToSend)],
+        gasBudget: Number(gasBudget)
+      }
+    };
   }
 };
 var _Delegation = class {
@@ -1703,129 +1918,14 @@ var _Delegation = class {
 var Delegation = _Delegation;
 Delegation.SUI_OBJECT_TYPE = "0x2::delegation::Delegation";
 
-// src/types/sui-bcs.ts
-var import_bcs7 = require("@mysten/bcs");
-var bcs = new import_bcs7.BCS((0, import_bcs7.getSuiMoveConfig)());
-bcs.registerType(
-  "utf8string",
-  (writer, str) => {
-    const bytes = Array.from(new TextEncoder().encode(str));
-    return writer.writeVec(bytes, (writer2, el) => writer2.write8(el));
-  },
-  (reader) => {
-    let bytes = reader.readVec((reader2) => reader2.read8());
-    return new TextDecoder().decode(new Uint8Array(bytes));
-  }
-).registerType(
-  "ObjectDigest",
-  (writer, str) => {
-    let bytes = Array.from((0, import_bcs7.decodeStr)(str, "base64"));
-    return writer.writeVec(bytes, (writer2, el) => writer2.write8(el));
-  },
-  (reader) => {
-    let bytes = reader.readVec((reader2) => reader2.read8());
-    return (0, import_bcs7.encodeStr)(new Uint8Array(bytes), "base64");
-  }
-);
-bcs.registerStructType("SuiObjectRef", {
-  objectId: "address",
-  version: "u64",
-  digest: "ObjectDigest"
-});
-bcs.registerStructType("TransferObjectTx", {
-  recipient: "address",
-  object_ref: "SuiObjectRef"
-});
-bcs.registerStructType("PayTx", {
-  coins: "vector<SuiObjectRef>",
-  recipients: "vector<address>",
-  amounts: "vector<u64>"
-});
-bcs.registerStructType("PaySuiTx", {
-  coins: "vector<SuiObjectRef>",
-  recipients: "vector<address>",
-  amounts: "vector<u64>"
-});
-bcs.registerStructType("PayAllSuiTx", {
-  coins: "vector<SuiObjectRef>",
-  recipient: "address"
-});
-bcs.registerEnumType("Option<T>", {
-  None: null,
-  Some: "T"
-});
-bcs.registerStructType("TransferSuiTx", {
-  recipient: "address",
-  amount: "Option<u64>"
-});
-bcs.registerStructType("PublishTx", {
-  modules: "vector<vector<u8>>"
-});
-bcs.registerStructType("SharedObjectRef", {
-  objectId: "address",
-  initialSharedVersion: "u64"
-}).registerEnumType("ObjectArg", {
-  ImmOrOwned: "SuiObjectRef",
-  Shared: "SharedObjectRef"
-}).registerEnumType("CallArg", {
-  Pure: "vector<u8>",
-  Object: "ObjectArg",
-  ObjVec: "vector<ObjectArg>"
-});
-bcs.registerEnumType("TypeTag", {
-  bool: null,
-  u8: null,
-  u64: null,
-  u128: null,
-  address: null,
-  signer: null,
-  vector: "TypeTag",
-  struct: "StructTag",
-  u16: null,
-  u32: null,
-  u256: null
-}).registerStructType("StructTag", {
-  address: "address",
-  module: "string",
-  name: "string",
-  typeParams: "vector<TypeTag>"
-});
-bcs.registerStructType("MoveCallTx", {
-  package: "SuiObjectRef",
-  module: "string",
-  function: "string",
-  typeArguments: "vector<TypeTag>",
-  arguments: "vector<CallArg>"
-});
-bcs.registerEnumType("Transaction", {
-  TransferObject: "TransferObjectTx",
-  Publish: "PublishTx",
-  Call: "MoveCallTx",
-  TransferSui: "TransferSuiTx",
-  Pay: "PayTx",
-  PaySui: "PaySuiTx",
-  PayAllSui: "PayAllSuiTx"
-});
-bcs.registerEnumType("TransactionKind", {
-  Single: "Transaction",
-  Batch: "vector<Transaction>"
-});
-bcs.registerStructType("TransactionData", {
-  kind: "TransactionKind",
-  sender: "address",
-  gasPayment: "SuiObjectRef",
-  gasPrice: "u64",
-  gasBudget: "u64"
-});
-
 // src/types/version.ts
+var import_femver = require("@suchipi/femver");
 function parseVersionFromString(version) {
-  const versions = version.split(".");
-  return {
-    major: parseInt(versions[0], 10),
-    minor: parseInt(versions[1], 10),
-    patch: parseInt(versions[2], 10)
-  };
+  return (0, import_femver.parse)(version);
+}
+function versionToString(version) {
+  const { major, minor, patch } = version;
+  return `${major}.${minor}.${patch}`;
 }
 
 // src/rpc/websocket-client.ts
@@ -2039,6 +2139,7 @@ async function requestSuiFromFaucet(endpoint, recipient, httpHeaders) {
 }
 
 // src/providers/json-rpc-provider.ts
+var import_femver2 = require("@suchipi/femver");
 var isNumber = (val) => typeof val === "number";
 var isAny = (_val) => true;
 var DEFAULT_OPTIONS = {
@@ -2084,6 +2185,35 @@ var JsonRpcProvider = class extends Provider {
       console.warn("Error fetching version number of the RPC API", err);
     }
     return void 0;
+  }
+  async getCoinMetadata(coinType) {
+    try {
+      const version = await this.getRpcApiVersion();
+      if (version && (0, import_femver2.lt)(versionToString(version), "0.17.0")) {
+        const [packageId, module2, symbol] = coinType.split("::");
+        if (normalizeSuiAddress(packageId) !== normalizeSuiAddress("0x2") || module2 != "sui" || symbol !== "SUI") {
+          throw new Error(
+            "only SUI coin is supported in getCoinMetadata for RPC version priort to 0.17.0."
+          );
+        }
+        return {
+          decimals: 9,
+          name: "Sui",
+          symbol: "SUI",
+          description: "",
+          iconUrl: null,
+          id: null
+        };
+      }
+      return await this.client.requestWithType(
+        "sui_getCoinMetadata",
+        [coinType],
+        isCoinMetadata,
+        this.options.skipDataValidation
+      );
+    } catch (err) {
+      throw new Error(`Error fetching CoinMetadata for ${coinType}: ${err}`);
+    }
   }
   async requestSuiFromFaucet(recipient, httpHeaders) {
     if (!this.endpoints.faucet) {
@@ -2163,6 +2293,9 @@ var JsonRpcProvider = class extends Provider {
   }
   async getObjectsOwnedByAddress(address) {
     try {
+      if (!address || !isValidSuiAddress(normalizeSuiAddress(address))) {
+        throw new Error("Invalid Sui address");
+      }
       return await this.client.requestWithType(
         "sui_getObjectsOwnedByAddress",
         [address],
@@ -2178,19 +2311,6 @@ var JsonRpcProvider = class extends Provider {
   async getGasObjectsOwnedByAddress(address) {
     const objects = await this.getObjectsOwnedByAddress(address);
     return objects.filter((obj) => Coin.isSUI(obj));
-  }
-  getCoinDenominationInfo(coinType) {
-    const [packageId, module2, symbol] = coinType.split("::");
-    if (normalizeSuiAddress(packageId) !== normalizeSuiAddress("0x2") || module2 != "sui" || symbol !== "SUI") {
-      throw new Error(
-        "only SUI coin is supported in getCoinDenominationInfo for now."
-      );
-    }
-    return {
-      coinType,
-      basicUnit: "MIST",
-      decimalNumber: 9
-    };
   }
   async getCoinBalancesOwnedByAddress(address, typeArg) {
     const objects = await this.getObjectsOwnedByAddress(address);
@@ -2217,6 +2337,9 @@ var JsonRpcProvider = class extends Provider {
   }
   async getObjectsOwnedByObject(objectId) {
     try {
+      if (!objectId || !isValidSuiObjectId(normalizeSuiObjectId(objectId))) {
+        throw new Error("Invalid Sui Object id");
+      }
       return await this.client.requestWithType(
         "sui_getObjectsOwnedByObject",
         [objectId],
@@ -2231,6 +2354,9 @@ var JsonRpcProvider = class extends Provider {
   }
   async getObject(objectId) {
     try {
+      if (!objectId || !isValidSuiObjectId(normalizeSuiObjectId(objectId))) {
+        throw new Error("Invalid Sui Object id");
+      }
       return await this.client.requestWithType(
         "sui_getObject",
         [objectId],
@@ -2246,18 +2372,23 @@ var JsonRpcProvider = class extends Provider {
     return getObjectReference(resp);
   }
   async getObjectBatch(objectIds) {
-    const requests = objectIds.map((id) => ({
-      method: "sui_getObject",
-      args: [id]
-    }));
     try {
+      const requests = objectIds.map((id) => {
+        if (!id || !isValidSuiObjectId(normalizeSuiObjectId(id))) {
+          throw new Error(`Invalid Sui Object id ${id}`);
+        }
+        return {
+          method: "sui_getObject",
+          args: [id]
+        };
+      });
       return await this.client.batchRequestWithType(
         requests,
         isGetObjectDataResponse,
         this.options.skipDataValidation
       );
     } catch (err) {
-      throw new Error(`Error fetching object info: ${err} for id ${objectIds}`);
+      throw new Error(`Error fetching object info: ${err} for ids [${objectIds}]`);
     }
   }
   async getTransactions(query, cursor = null, limit = null, order = "descending") {
@@ -2286,6 +2417,9 @@ var JsonRpcProvider = class extends Provider {
       }
     ];
     try {
+      if (!objectID || !isValidSuiObjectId(normalizeSuiObjectId(objectID))) {
+        throw new Error("Invalid Sui Object id");
+      }
       const results = await this.client.batchRequestWithType(
         requests,
         isPaginatedTransactionDigests,
@@ -2310,6 +2444,9 @@ var JsonRpcProvider = class extends Provider {
       }
     ];
     try {
+      if (!addressID || !isValidSuiAddress(normalizeSuiAddress(addressID))) {
+        throw new Error("Invalid Sui address");
+      }
       const results = await this.client.batchRequestWithType(
         requests,
         isPaginatedTransactionDigests,
@@ -2324,6 +2461,9 @@ var JsonRpcProvider = class extends Provider {
   }
   async getTransactionWithEffects(digest) {
     try {
+      if (!isValidTransactionDigest(digest, "base58")) {
+        throw new Error("Invalid Transaction digest");
+      }
       const resp = await this.client.requestWithType(
         "sui_getTransaction",
         [digest],
@@ -2338,31 +2478,51 @@ var JsonRpcProvider = class extends Provider {
     }
   }
   async getTransactionWithEffectsBatch(digests) {
-    const requests = digests.map((d) => ({
-      method: "sui_getTransaction",
-      args: [d]
-    }));
     try {
+      const requests = digests.map((d) => {
+        if (!isValidTransactionDigest(d, "base58")) {
+          throw new Error(`Invalid Transaction digest ${d}`);
+        }
+        return {
+          method: "sui_getTransaction",
+          args: [d]
+        };
+      });
       return await this.client.batchRequestWithType(
         requests,
         isSuiTransactionResponse,
         this.options.skipDataValidation
       );
     } catch (err) {
-      const list = digests.join(", ").substring(0, -2);
       throw new Error(
-        `Error getting transaction effects: ${err} for digests [${list}]`
+        `Error getting transaction effects: ${err} for digests [${digests}]`
       );
     }
   }
   async executeTransaction(txnBytes, signatureScheme, signature, pubkey, requestType = "WaitForEffectsCert") {
     try {
-      const resp = await this.client.requestWithType(
-        "sui_executeTransaction",
-        [txnBytes, signatureScheme, signature, pubkey, requestType],
-        isSuiExecuteTransactionResponse,
-        this.options.skipDataValidation
-      );
+      let resp;
+      let version = await this.getRpcApiVersion();
+      if (version?.major === 0 && version?.minor < 18) {
+        resp = await this.client.requestWithType(
+          "sui_executeTransaction",
+          [txnBytes.toString(), signatureScheme, signature.toString(), pubkey.toString(), requestType],
+          isSuiExecuteTransactionResponse,
+          this.options.skipDataValidation
+        );
+      } else {
+        const serialized_sig = new Uint8Array(1 + signature.getLength() + pubkey.toBytes().length);
+        serialized_sig.set([SIGNATURE_SCHEME_TO_FLAG[signatureScheme]]);
+        serialized_sig.set(signature.getData(), 1);
+        serialized_sig.set(pubkey.toBytes(), 1 + signature.getLength());
+        resp = await this.client.requestWithType(
+          "sui_executeTransactionSerializedSig",
+          [txnBytes.toString(), new Base64DataBuffer(serialized_sig).toString(), requestType],
+          isSuiExecuteTransactionResponse,
+          this.options.skipDataValidation
+        );
+      }
+      ;
       return resp;
     } catch (err) {
       throw new Error(`Error executing transaction with request type: ${err}}`);
@@ -2392,6 +2552,20 @@ var JsonRpcProvider = class extends Provider {
     } catch (err) {
       throw new Error(
         `Error fetching transaction digests in range: ${err} for range ${start}-${end}`
+      );
+    }
+  }
+  async getTransactionAuthSigners(digest) {
+    try {
+      return await this.client.requestWithType(
+        "sui_getTransactionAuthSigners",
+        [digest],
+        isSuiTransactionAuthSignersResponse,
+        this.options.skipDataValidation
+      );
+    } catch (err) {
+      throw new Error(
+        `Error fetching transaction auth signers: ${err}`
       );
     }
   }
@@ -2425,7 +2599,9 @@ var JsonRpcProvider = class extends Provider {
       );
       return resp;
     } catch (err) {
-      throw new Error(`Error dry running transaction with request type: ${err}}`);
+      throw new Error(
+        `Error dry running transaction with request type: ${err}`
+      );
     }
   }
 };
@@ -2494,21 +2670,20 @@ var JsonRpcProviderWithCache = class extends JsonRpcProvider {
     }
   }
   updateObjectRefCacheFromTransactionEffects(effects) {
-    var _a, _b, _c, _d, _e;
-    (_a = effects.created) == null ? void 0 : _a.forEach((r) => this.updateObjectRefCache(r.reference));
-    (_b = effects.mutated) == null ? void 0 : _b.forEach((r) => this.updateObjectRefCache(r.reference));
-    (_c = effects.unwrapped) == null ? void 0 : _c.forEach((r) => this.updateObjectRefCache(r.reference));
-    (_d = effects.wrapped) == null ? void 0 : _d.forEach((r) => this.updateObjectRefCache(r));
-    (_e = effects.deleted) == null ? void 0 : _e.forEach((r) => this.objectRefs.delete(r.objectId));
+    effects.created?.forEach((r) => this.updateObjectRefCache(r.reference));
+    effects.mutated?.forEach((r) => this.updateObjectRefCache(r.reference));
+    effects.unwrapped?.forEach((r) => this.updateObjectRefCache(r.reference));
+    effects.wrapped?.forEach((r) => this.updateObjectRefCache(r));
+    effects.deleted?.forEach((r) => this.objectRefs.delete(r.objectId));
   }
 };
 
 // src/serialization/hex.ts
-var import_bcs8 = require("@mysten/bcs");
+var import_bcs11 = require("@mysten/bcs");
 var HexDataBuffer = class {
   constructor(data) {
     if (typeof data === "string") {
-      this._data = (0, import_bcs8.fromHEX)(data);
+      this._data = (0, import_bcs11.fromHEX)(data);
     } else {
       this._data = data;
     }
@@ -2520,7 +2695,7 @@ var HexDataBuffer = class {
     return this._data.length;
   }
   toString() {
-    return (0, import_bcs8.toHEX)(this._data);
+    return (0, import_bcs11.toHEX)(this._data);
   }
 };
 
@@ -2530,165 +2705,128 @@ var RpcTxnDataSerializer = class {
     this.skipDataValidation = skipDataValidation;
     this.client = new JsonRpcClient(endpoint);
   }
-  async newTransferObject(signerAddress, t) {
-    try {
-      const resp = await this.client.requestWithType(
-        "sui_transferObject",
-        [signerAddress, t.objectId, t.gasPayment, t.gasBudget, t.recipient],
-        isTransactionBytes,
-        this.skipDataValidation
-      );
-      return new Base64DataBuffer(resp.txBytes);
-    } catch (err) {
-      throw new Error(
-        `Error transferring object: ${err} with args ${JSON.stringify(t)}`
-      );
-    }
-  }
-  async newTransferSui(signerAddress, t) {
-    try {
-      const resp = await this.client.requestWithType(
-        "sui_transferSui",
-        [signerAddress, t.suiObjectId, t.gasBudget, t.recipient, t.amount],
-        isTransactionBytes,
-        this.skipDataValidation
-      );
-      return new Base64DataBuffer(resp.txBytes);
-    } catch (err) {
-      throw new Error(
-        `Error transferring Sui coin: ${err} with args ${JSON.stringify(t)}`
-      );
-    }
-  }
-  async newPay(signerAddress, t) {
-    try {
-      const resp = await this.client.requestWithType(
-        "sui_pay",
-        [
+  async serializeToBytes(signerAddress, unserializedTxn) {
+    let endpoint;
+    let args;
+    switch (unserializedTxn.kind) {
+      case "transferObject":
+        const t = unserializedTxn.data;
+        endpoint = "sui_transferObject";
+        args = [
           signerAddress,
-          t.inputCoins,
-          t.recipients,
-          t.amounts,
+          t.objectId,
           t.gasPayment,
-          t.gasBudget
-        ],
-        isTransactionBytes,
-        this.skipDataValidation
-      );
-      return new Base64DataBuffer(resp.txBytes);
-    } catch (err) {
-      throw new Error(
-        `Error executing Pay transaction: ${err} with args ${JSON.stringify(t)}`
-      );
-    }
-  }
-  async newPaySui(signerAddress, t) {
-    try {
-      const resp = await this.client.requestWithType(
-        "sui_paySui",
-        [signerAddress, t.inputCoins, t.recipients, t.amounts, t.gasBudget],
-        isTransactionBytes,
-        this.skipDataValidation
-      );
-      return new Base64DataBuffer(resp.txBytes);
-    } catch (err) {
-      throw new Error(
-        `Error executing PaySui transaction: ${err} with args ${JSON.stringify(
-          t
-        )}`
-      );
-    }
-  }
-  async newPayAllSui(signerAddress, t) {
-    try {
-      const resp = await this.client.requestWithType(
-        "sui_payAllSui",
-        [signerAddress, t.inputCoins, t.recipient, t.gasBudget],
-        isTransactionBytes,
-        this.skipDataValidation
-      );
-      return new Base64DataBuffer(resp.txBytes);
-    } catch (err) {
-      throw new Error(
-        `Error executing PayAllSui transaction: ${err} with args ${JSON.stringify(
-          t
-        )}`
-      );
-    }
-  }
-  async newMoveCall(signerAddress, t) {
-    try {
-      const resp = await this.client.requestWithType(
-        "sui_moveCall",
-        [
+          t.gasBudget,
+          t.recipient
+        ];
+        break;
+      case "transferSui":
+        const transferSui = unserializedTxn.data;
+        endpoint = "sui_transferSui";
+        args = [
           signerAddress,
-          t.packageObjectId,
-          t.module,
-          t.function,
-          t.typeArguments,
-          t.arguments,
-          t.gasPayment,
-          t.gasBudget
-        ],
+          transferSui.suiObjectId,
+          transferSui.gasBudget,
+          transferSui.recipient,
+          transferSui.amount
+        ];
+        break;
+      case "pay":
+        const pay = unserializedTxn.data;
+        endpoint = "sui_pay";
+        args = [
+          signerAddress,
+          pay.inputCoins,
+          pay.recipients,
+          pay.amounts,
+          pay.gasPayment,
+          pay.gasBudget
+        ];
+        break;
+      case "paySui":
+        const paySui = unserializedTxn.data;
+        endpoint = "sui_paySui";
+        args = [
+          signerAddress,
+          paySui.inputCoins,
+          paySui.recipients,
+          paySui.amounts,
+          paySui.gasBudget
+        ];
+        break;
+      case "payAllSui":
+        const payAllSui = unserializedTxn.data;
+        endpoint = "sui_payAllSui";
+        args = [
+          signerAddress,
+          payAllSui.inputCoins,
+          payAllSui.recipient,
+          payAllSui.gasBudget
+        ];
+        break;
+      case "moveCall":
+        const moveCall = unserializedTxn.data;
+        endpoint = "sui_moveCall";
+        args = [
+          signerAddress,
+          moveCall.packageObjectId,
+          moveCall.module,
+          moveCall.function,
+          moveCall.typeArguments,
+          moveCall.arguments,
+          moveCall.gasPayment,
+          moveCall.gasBudget
+        ];
+        break;
+      case "mergeCoin":
+        const mergeCoin = unserializedTxn.data;
+        endpoint = "sui_mergeCoins";
+        args = [
+          signerAddress,
+          mergeCoin.primaryCoin,
+          mergeCoin.coinToMerge,
+          mergeCoin.gasPayment,
+          mergeCoin.gasBudget
+        ];
+        break;
+      case "splitCoin":
+        const splitCoin = unserializedTxn.data;
+        endpoint = "sui_splitCoin";
+        args = [
+          signerAddress,
+          splitCoin.coinObjectId,
+          splitCoin.splitAmounts,
+          splitCoin.gasPayment,
+          splitCoin.gasBudget
+        ];
+        break;
+      case "publish":
+        const publish = unserializedTxn.data;
+        endpoint = "sui_publish";
+        args = [
+          signerAddress,
+          publish.compiledModules,
+          publish.gasPayment,
+          publish.gasBudget
+        ];
+        break;
+    }
+    try {
+      const resp = await this.client.requestWithType(
+        endpoint,
+        args,
         isTransactionBytes,
         this.skipDataValidation
       );
       return new Base64DataBuffer(resp.txBytes);
-    } catch (err) {
+    } catch (e) {
       throw new Error(
-        `Error executing a move call: ${err} with args ${JSON.stringify(t)}`
+        `Encountered error when calling RpcTxnDataSerialize for a ${unserializedTxn.kind} transaction for address ${signerAddress} for transaction ${JSON.stringify(
+          unserializedTxn,
+          null,
+          2
+        )}: ${e}`
       );
-    }
-  }
-  async newMergeCoin(signerAddress, t) {
-    try {
-      const resp = await this.client.requestWithType(
-        "sui_mergeCoins",
-        [
-          signerAddress,
-          t.primaryCoin,
-          t.coinToMerge,
-          t.gasPayment,
-          t.gasBudget
-        ],
-        isTransactionBytes,
-        this.skipDataValidation
-      );
-      return new Base64DataBuffer(resp.txBytes);
-    } catch (err) {
-      throw new Error(`Error merging coin: ${err}`);
-    }
-  }
-  async newSplitCoin(signerAddress, t) {
-    try {
-      const resp = await this.client.requestWithType(
-        "sui_splitCoin",
-        [
-          signerAddress,
-          t.coinObjectId,
-          t.splitAmounts,
-          t.gasPayment,
-          t.gasBudget
-        ],
-        isTransactionBytes,
-        this.skipDataValidation
-      );
-      return new Base64DataBuffer(resp.txBytes);
-    } catch (err) {
-      throw new Error(`Error splitting coin: ${err}`);
-    }
-  }
-  async newPublish(signerAddress, t) {
-    try {
-      const resp = await this.client.requestWithType(
-        "sui_publish",
-        [signerAddress, t.compiledModules, t.gasPayment, t.gasBudget],
-        isTransactionBytes,
-        this.skipDataValidation
-      );
-      return new Base64DataBuffer(resp.txBytes);
-    } catch (err) {
-      throw new Error(`Error publishing package ${err}`);
     }
   }
 };
@@ -2911,9 +3049,8 @@ var CallArgSerializer = class {
     }
   }
   isTxContext(param) {
-    var _a;
-    const struct = (_a = extractStructTag(param)) == null ? void 0 : _a.Struct;
-    return extractMutableReference(param) != null && (struct == null ? void 0 : struct.address) === "0x2" && (struct == null ? void 0 : struct.module) === "tx_context" && (struct == null ? void 0 : struct.name) === "TxContext";
+    const struct = extractStructTag(param)?.Struct;
+    return extractMutableReference(param) != null && struct?.address === "0x2" && struct?.module === "tx_context" && struct?.name === "TxContext";
   }
 };
 
@@ -2929,8 +3066,16 @@ var TypeTagSerializer = class {
       return { bool: null };
     } else if (str === "u8") {
       return { u8: null };
+    } else if (str === "u16") {
+      return { u16: null };
+    } else if (str === "u32") {
+      return { u32: null };
     } else if (str === "u64") {
       return { u64: null };
+    } else if (str === "u128") {
+      return { u128: null };
+    } else if (str === "u256") {
+      return { u256: null };
     } else if (str === "signer") {
       return { signer: null };
     }
@@ -2968,219 +3113,158 @@ var TypeTagSerializer = class {
 };
 
 // src/signers/txn-data-serializers/local-txn-data-serializer.ts
-var TYPE_TAG = Array.from("TransactionData::").map((e) => e.charCodeAt(0));
 var LocalTxnDataSerializer = class {
   constructor(provider) {
     this.provider = provider;
   }
-  async newTransferObject(signerAddress, t) {
+  async serializeToBytes(signerAddress, txn) {
     try {
-      const objectRef = await this.provider.getObjectRef(t.objectId);
-      const tx = {
-        TransferObject: {
-          recipient: t.recipient,
-          object_ref: objectRef
-        }
-      };
-      return await this.constructTransactionData(
-        tx,
-        { kind: "transferObject", data: t },
-        t.gasPayment,
-        signerAddress
+      const version = await this.provider.getRpcApiVersion();
+      const useIntentSigning = version != null && version.major >= 0 && version.minor > 18;
+      return await this.serializeTransactionData(
+        useIntentSigning,
+        await this.constructTransactionData(signerAddress, txn)
       );
-    } catch (err) {
+    } catch (e) {
       throw new Error(
-        `Error constructing a TransferObject transaction: ${err} args ${JSON.stringify(
-          t
-        )}`
+        `Encountered error when serializing a ${txn.kind} transaction for address ${signerAddress} for transaction ${JSON.stringify(
+          txn,
+          null,
+          2
+        )}: ${e}`
       );
     }
   }
-  async newTransferSui(signerAddress, t) {
-    try {
-      const tx = {
-        TransferSui: {
-          recipient: t.recipient,
-          amount: t.amount == null ? { None: null } : { Some: t.amount }
-        }
-      };
-      return await this.constructTransactionData(
-        tx,
-        { kind: "transferSui", data: t },
-        t.suiObjectId,
-        signerAddress
-      );
-    } catch (err) {
-      throw new Error(
-        `Error constructing a TransferSui transaction: ${err} args ${JSON.stringify(
-          t
-        )}`
-      );
+  async constructTransactionData(signerAddress, unserializedTxn) {
+    let tx;
+    let gasPayment;
+    switch (unserializedTxn.kind) {
+      case "transferObject":
+        const t = unserializedTxn.data;
+        const objectRef = await this.provider.getObjectRef(t.objectId);
+        tx = {
+          TransferObject: {
+            recipient: t.recipient,
+            object_ref: objectRef
+          }
+        };
+        gasPayment = t.gasPayment;
+        break;
+      case "transferSui":
+        const transferSui = unserializedTxn.data;
+        tx = {
+          TransferSui: {
+            recipient: transferSui.recipient,
+            amount: transferSui.amount == null ? { None: null } : { Some: transferSui.amount }
+          }
+        };
+        gasPayment = transferSui.suiObjectId;
+        break;
+      case "pay":
+        const pay = unserializedTxn.data;
+        const inputCoinRefs = (await Promise.all(
+          pay.inputCoins.map((coin) => this.provider.getObjectRef(coin))
+        )).map((ref) => ref);
+        tx = {
+          Pay: {
+            coins: inputCoinRefs,
+            recipients: pay.recipients,
+            amounts: pay.amounts
+          }
+        };
+        gasPayment = pay.gasPayment;
+        break;
+      case "paySui":
+        const paySui = unserializedTxn.data;
+        const paySuiInputCoinRefs = (await Promise.all(
+          paySui.inputCoins.map((coin) => this.provider.getObjectRef(coin))
+        )).map((ref) => ref);
+        tx = {
+          PaySui: {
+            coins: paySuiInputCoinRefs,
+            recipients: paySui.recipients,
+            amounts: paySui.amounts
+          }
+        };
+        gasPayment = paySui.inputCoins[0];
+        break;
+      case "payAllSui":
+        const payAllSui = unserializedTxn.data;
+        const payAllSuiInputCoinRefs = (await Promise.all(
+          payAllSui.inputCoins.map((coin) => this.provider.getObjectRef(coin))
+        )).map((ref) => ref);
+        tx = {
+          PayAllSui: {
+            coins: payAllSuiInputCoinRefs,
+            recipient: payAllSui.recipient
+          }
+        };
+        gasPayment = payAllSui.inputCoins[0];
+        break;
+      case "moveCall":
+        const moveCall = unserializedTxn.data;
+        const pkg = await this.provider.getObjectRef(moveCall.packageObjectId);
+        tx = {
+          Call: {
+            package: pkg,
+            module: moveCall.module,
+            function: moveCall.function,
+            typeArguments: moveCall.typeArguments.map(
+              (a) => typeof a === "string" ? new TypeTagSerializer().parseFromStr(a) : a
+            ),
+            arguments: await new CallArgSerializer(
+              this.provider
+            ).serializeMoveCallArguments(moveCall)
+          }
+        };
+        gasPayment = moveCall.gasPayment;
+        break;
+      case "mergeCoin":
+        const mergeCoin = unserializedTxn.data;
+        return this.constructTransactionData(signerAddress, {
+          kind: "moveCall",
+          data: {
+            packageObjectId: SUI_FRAMEWORK_ADDRESS,
+            module: PAY_MODULE_NAME,
+            function: PAY_JOIN_COIN_FUNC_NAME,
+            typeArguments: [await this.getCoinStructTag(mergeCoin.coinToMerge)],
+            arguments: [mergeCoin.primaryCoin, mergeCoin.coinToMerge],
+            gasPayment: mergeCoin.gasPayment,
+            gasBudget: mergeCoin.gasBudget
+          }
+        });
+      case "splitCoin":
+        const splitCoin = unserializedTxn.data;
+        return this.constructTransactionData(signerAddress, {
+          kind: "moveCall",
+          data: {
+            packageObjectId: SUI_FRAMEWORK_ADDRESS,
+            module: PAY_MODULE_NAME,
+            function: PAY_SPLIT_COIN_VEC_FUNC_NAME,
+            typeArguments: [
+              await this.getCoinStructTag(splitCoin.coinObjectId)
+            ],
+            arguments: [splitCoin.coinObjectId, splitCoin.splitAmounts],
+            gasPayment: splitCoin.gasPayment,
+            gasBudget: splitCoin.gasBudget
+          }
+        });
+      case "publish":
+        const publish = unserializedTxn.data;
+        tx = {
+          Publish: {
+            modules: publish.compiledModules
+          }
+        };
+        gasPayment = publish.gasPayment;
+        break;
     }
-  }
-  async newPay(signerAddress, t) {
-    try {
-      const inputCoinRefs = (await Promise.all(
-        t.inputCoins.map((coin) => this.provider.getObjectRef(coin))
-      )).map((ref) => ref);
-      const tx = {
-        Pay: {
-          coins: inputCoinRefs,
-          recipients: t.recipients,
-          amounts: t.amounts
-        }
-      };
-      return await this.constructTransactionData(
-        tx,
-        { kind: "pay", data: t },
-        t.gasPayment,
-        signerAddress
-      );
-    } catch (err) {
-      throw new Error(
-        `Error constructing a Pay transaction: ${err} args ${JSON.stringify(t)}`
-      );
-    }
-  }
-  async newPaySui(signerAddress, t) {
-    try {
-      const inputCoinRefs = (await Promise.all(
-        t.inputCoins.map((coin) => this.provider.getObjectRef(coin))
-      )).map((ref) => ref);
-      const tx = {
-        PaySui: {
-          coins: inputCoinRefs,
-          recipients: t.recipients,
-          amounts: t.amounts
-        }
-      };
-      const gas_coin_obj = t.inputCoins[0];
-      return await this.constructTransactionData(
-        tx,
-        { kind: "paySui", data: t },
-        gas_coin_obj,
-        signerAddress
-      );
-    } catch (err) {
-      throw new Error(
-        `Error constructing a PaySui transaction: ${err} args ${JSON.stringify(
-          t
-        )}`
-      );
-    }
-  }
-  async newPayAllSui(signerAddress, t) {
-    try {
-      const inputCoinRefs = (await Promise.all(
-        t.inputCoins.map((coin) => this.provider.getObjectRef(coin))
-      )).map((ref) => ref);
-      const tx = {
-        PayAllSui: {
-          coins: inputCoinRefs,
-          recipient: t.recipient
-        }
-      };
-      const gas_coin_obj = t.inputCoins[0];
-      return await this.constructTransactionData(
-        tx,
-        { kind: "payAllSui", data: t },
-        gas_coin_obj,
-        signerAddress
-      );
-    } catch (err) {
-      throw new Error(
-        `Error constructing a PayAllSui transaction: ${err} args ${JSON.stringify(
-          t
-        )}`
-      );
-    }
-  }
-  async newMoveCall(signerAddress, t) {
-    try {
-      const pkg = await this.provider.getObjectRef(t.packageObjectId);
-      const tx = {
-        Call: {
-          package: pkg,
-          module: t.module,
-          function: t.function,
-          typeArguments: t.typeArguments.map(
-            (a) => typeof a === "string" ? new TypeTagSerializer().parseFromStr(a) : a
-          ),
-          arguments: await new CallArgSerializer(
-            this.provider
-          ).serializeMoveCallArguments(t)
-        }
-      };
-      return await this.constructTransactionData(
-        tx,
-        { kind: "moveCall", data: t },
-        t.gasPayment,
-        signerAddress
-      );
-    } catch (err) {
-      throw new Error(
-        `Error constructing a move call: ${err} args ${JSON.stringify(t)}`
-      );
-    }
-  }
-  async newMergeCoin(signerAddress, t) {
-    try {
-      return await this.newMoveCall(signerAddress, {
-        packageObjectId: SUI_FRAMEWORK_ADDRESS,
-        module: PAY_MODULE_NAME,
-        function: PAY_JOIN_COIN_FUNC_NAME,
-        typeArguments: [await this.getCoinStructTag(t.coinToMerge)],
-        arguments: [t.primaryCoin, t.coinToMerge],
-        gasPayment: t.gasPayment,
-        gasBudget: t.gasBudget
-      });
-    } catch (err) {
-      throw new Error(
-        `Error constructing a MergeCoin Transaction: ${err} args ${JSON.stringify(
-          t
-        )}`
-      );
-    }
-  }
-  async newSplitCoin(signerAddress, t) {
-    try {
-      return await this.newMoveCall(signerAddress, {
-        packageObjectId: SUI_FRAMEWORK_ADDRESS,
-        module: PAY_MODULE_NAME,
-        function: PAY_SPLIT_COIN_VEC_FUNC_NAME,
-        typeArguments: [await this.getCoinStructTag(t.coinObjectId)],
-        arguments: [t.coinObjectId, t.splitAmounts],
-        gasPayment: t.gasPayment,
-        gasBudget: t.gasBudget
-      });
-    } catch (err) {
-      throw new Error(
-        `Error constructing a SplitCoin Transaction: ${err} args ${JSON.stringify(
-          t
-        )}`
-      );
-    }
-  }
-  async newPublish(signerAddress, t) {
-    try {
-      const tx = {
-        Publish: {
-          modules: t.compiledModules
-        }
-      };
-      return await this.constructTransactionData(
-        tx,
-        { kind: "publish", data: t },
-        t.gasPayment,
-        signerAddress
-      );
-    } catch (err) {
-      throw new Error(
-        `Error constructing a newPublish transaction: ${err} with args ${JSON.stringify(
-          t
-        )}`
-      );
-    }
+    return this.constructTransactionDataHelper(
+      tx,
+      unserializedTxn,
+      gasPayment,
+      signerAddress
+    );
   }
   async selectGasPaymentForTransaction(txn, signerAddress, exclude = []) {
     if (txn.kind === "bytes") {
@@ -3228,7 +3312,7 @@ var LocalTxnDataSerializer = class {
     }
     return { struct: Coin.getCoinStructTag(coinTypeArg) };
   }
-  async constructTransactionData(tx, originalTx, gasObjectId, signerAddress) {
+  async constructTransactionDataHelper(tx, originalTx, gasObjectId, signerAddress) {
     if (gasObjectId === void 0) {
       gasObjectId = await this.selectGasPaymentForTransaction(
         originalTx,
@@ -3241,7 +3325,7 @@ var LocalTxnDataSerializer = class {
       }
     }
     const gasPayment = await this.provider.getObjectRef(gasObjectId);
-    const txData = {
+    return {
       kind: {
         Single: tx
       },
@@ -3250,23 +3334,24 @@ var LocalTxnDataSerializer = class {
       gasBudget: originalTx.data.gasBudget,
       sender: signerAddress
     };
-    return await this.serializeTransactionData(txData);
   }
-  async serializeTransactionData(tx, size = 8192) {
-    const format = "TransactionData";
-    const dataBytes = bcs.ser(format, tx, size).toBytes();
-    const serialized = new Uint8Array(TYPE_TAG.length + dataBytes.length);
-    serialized.set(TYPE_TAG);
-    serialized.set(dataBytes, TYPE_TAG.length);
-    return new Base64DataBuffer(serialized);
+  async serializeTransactionData(useIntentSigning, tx, size = 8192) {
+    const dataBytes = bcs.ser("TransactionData", tx, size).toBytes();
+    if (useIntentSigning) {
+      return new Base64DataBuffer(dataBytes);
+    } else {
+      const serialized = new Uint8Array(
+        TRANSACTION_DATA_TYPE_TAG.length + dataBytes.length
+      );
+      serialized.set(TRANSACTION_DATA_TYPE_TAG);
+      serialized.set(dataBytes, TRANSACTION_DATA_TYPE_TAG.length);
+      return new Base64DataBuffer(serialized);
+    }
   }
-  async deserializeTransactionBytesToSignableTransaction(bytes) {
+  async deserializeTransactionBytesToSignableTransaction(useIntentSigning, bytes) {
     return this.transformTransactionDataToSignableTransaction(
-      await this.deserializeTransactionBytesToTransactionData(bytes)
+      deserializeTransactionBytesToTransactionData(useIntentSigning, bytes)
     );
-  }
-  async deserializeTransactionBytesToTransactionData(bytes) {
-    return bcs.de("TransactionData", bytes.getData().slice(TYPE_TAG.length));
   }
   async transformTransactionDataToSignableTransaction(tx) {
     if ("Single" in tx.kind) {
@@ -3294,7 +3379,7 @@ var LocalTxnDataSerializer = class {
           inputCoins: tx.Pay.coins.map((c) => c.objectId),
           recipients: tx.Pay.recipients,
           amounts: tx.Pay.amounts,
-          gasPayment: gasPayment == null ? void 0 : gasPayment.objectId,
+          gasPayment: gasPayment?.objectId,
           gasBudget
         }
       };
@@ -3309,7 +3394,7 @@ var LocalTxnDataSerializer = class {
           arguments: await new CallArgSerializer(
             this.provider
           ).deserializeCallArgs(tx),
-          gasPayment: gasPayment == null ? void 0 : gasPayment.objectId,
+          gasPayment: gasPayment?.objectId,
           gasBudget
         }
       };
@@ -3319,7 +3404,7 @@ var LocalTxnDataSerializer = class {
         data: {
           objectId: tx.TransferObject.object_ref.objectId,
           recipient: tx.TransferObject.recipient,
-          gasPayment: gasPayment == null ? void 0 : gasPayment.objectId,
+          gasPayment: gasPayment?.objectId,
           gasBudget
         }
       };
@@ -3338,7 +3423,7 @@ var LocalTxnDataSerializer = class {
         kind: "publish",
         data: {
           compiledModules: tx.Publish.modules,
-          gasPayment: gasPayment == null ? void 0 : gasPayment.objectId,
+          gasPayment: gasPayment?.objectId,
           gasBudget
         }
       };
@@ -3352,6 +3437,9 @@ var VoidProvider = class extends Provider {
   async getRpcApiVersion() {
     throw this.newError("getRpcApiVersion");
   }
+  getCoinMetadata(_coinType) {
+    throw new Error("getCoinMetadata");
+  }
   async requestSuiFromFaucet(_recipient, _httpHeaders) {
     throw this.newError("requestSuiFromFaucet");
   }
@@ -3360,9 +3448,6 @@ var VoidProvider = class extends Provider {
   }
   async getGasObjectsOwnedByAddress(_address) {
     throw this.newError("getGasObjectsOwnedByAddress");
-  }
-  getCoinDenominationInfo(_coin_type) {
-    throw this.newError("getCoinDenominationInfo");
   }
   async getCoinBalancesOwnedByAddress(_address, _typeArg) {
     throw this.newError("getCoinBalancesOwnedByAddress");
@@ -3430,6 +3515,7 @@ var VoidProvider = class extends Provider {
 };
 
 // src/signers/signer-with-provider.ts
+var INTENT_BYTES = [0, 0, 0];
 var SignerWithProvider = class {
   async requestSuiFromFaucet(httpHeaders) {
     return this.provider.requestSuiFromFaucet(
@@ -3450,39 +3536,67 @@ var SignerWithProvider = class {
   async signAndExecuteTransaction(transaction, requestType = "WaitForLocalExecution") {
     if (transaction instanceof Base64DataBuffer || transaction.kind === "bytes") {
       const txBytes = transaction instanceof Base64DataBuffer ? transaction : new Base64DataBuffer(transaction.data);
-      const sig = await this.signData(txBytes);
+      const version = await this.provider.getRpcApiVersion();
+      let dataToSign;
+      let txBytesToSubmit;
+      if (version?.major == 0 && version?.minor < 19) {
+        dataToSign = txBytes;
+        txBytesToSubmit = txBytes;
+      } else {
+        const intentMessage = new Uint8Array(INTENT_BYTES.length + txBytes.getLength());
+        intentMessage.set(INTENT_BYTES);
+        intentMessage.set(txBytes.getData(), INTENT_BYTES.length);
+        dataToSign = new Base64DataBuffer(intentMessage);
+        txBytesToSubmit = txBytes;
+      }
+      const sig = await this.signData(dataToSign);
       return await this.provider.executeTransaction(
-        txBytes.toString(),
+        txBytesToSubmit,
         sig.signatureScheme,
-        sig.signature.toString(),
-        sig.pubKey.toString(),
+        sig.signature,
+        sig.pubKey,
         requestType
       );
     }
-    switch (transaction.kind) {
-      case "moveCall":
-        return this.executeMoveCall(transaction.data, requestType);
-      case "transferSui":
-        return this.transferSui(transaction.data, requestType);
-      case "transferObject":
-        return this.transferObject(transaction.data, requestType);
-      case "mergeCoin":
-        return this.mergeCoin(transaction.data, requestType);
-      case "splitCoin":
-        return this.splitCoin(transaction.data, requestType);
-      case "pay":
-        return this.pay(transaction.data, requestType);
-      case "paySui":
-        return this.paySui(transaction.data, requestType);
-      case "payAllSui":
-        return this.payAllSui(transaction.data, requestType);
-      case "publish":
-        return this.publish(transaction.data, requestType);
-      default:
-        throw new Error(
-          `Unknown transaction kind: "${transaction.kind}"`
-        );
+    return await this.signAndExecuteTransaction(
+      await this.serializer.serializeToBytes(
+        await this.getAddress(),
+        transaction
+      ),
+      requestType
+    );
+  }
+  async getTransactionDigest(tx) {
+    let txBytes;
+    if (tx instanceof Base64DataBuffer || tx.kind === "bytes") {
+      txBytes = tx instanceof Base64DataBuffer ? tx : new Base64DataBuffer(tx.data);
+    } else {
+      txBytes = await this.serializer.serializeToBytes(
+        await this.getAddress(),
+        tx
+      );
     }
+    const version = await this.provider.getRpcApiVersion();
+    const useIntentSigning = version != null && version.major >= 0 && version.minor > 18;
+    let dataToSign;
+    if (useIntentSigning) {
+      const intentMessage = new Uint8Array(INTENT_BYTES.length + txBytes.getLength());
+      intentMessage.set(INTENT_BYTES);
+      intentMessage.set(txBytes.getData(), INTENT_BYTES.length);
+      dataToSign = new Base64DataBuffer(intentMessage);
+    } else {
+      dataToSign = txBytes;
+    }
+    const sig = await this.signData(dataToSign);
+    const data = deserializeTransactionBytesToTransactionData(useIntentSigning, txBytes);
+    return generateTransactionDigest(
+      data,
+      sig.signatureScheme,
+      sig.signature,
+      sig.pubKey,
+      version?.major == 0 && version?.minor < 18 ? "base64" : "base58",
+      version?.major == 0 && version?.minor < 18 ? false : true
+    );
   }
   async dryRunTransaction(tx) {
     const address = await this.getAddress();
@@ -3496,104 +3610,66 @@ var SignerWithProvider = class {
         case "bytes":
           dryRunTxBytes = new Base64DataBuffer(tx.data).toString();
           break;
-        case "mergeCoin":
-          dryRunTxBytes = (await this.serializer.newMergeCoin(address, tx.data)).toString();
-          break;
-        case "moveCall":
-          dryRunTxBytes = (await this.serializer.newMoveCall(address, tx.data)).toString();
-          break;
-        case "pay":
-          dryRunTxBytes = (await this.serializer.newPay(address, tx.data)).toString();
-          break;
-        case "payAllSui":
-          dryRunTxBytes = (await this.serializer.newPayAllSui(address, tx.data)).toString();
-          break;
-        case "paySui":
-          dryRunTxBytes = (await this.serializer.newPaySui(address, tx.data)).toString();
-          break;
-        case "publish":
-          dryRunTxBytes = (await this.serializer.newPublish(address, tx.data)).toString();
-          break;
-        case "splitCoin":
-          dryRunTxBytes = (await this.serializer.newSplitCoin(address, tx.data)).toString();
-          break;
-        case "transferObject":
-          dryRunTxBytes = (await this.serializer.newTransferObject(address, tx.data)).toString();
-          break;
-        case "transferSui":
-          dryRunTxBytes = (await this.serializer.newTransferSui(address, tx.data)).toString();
-          break;
         default:
-          throw new Error(`Error, unknown transaction kind ${tx.kind}. Can't dry run transaction.`);
+          dryRunTxBytes = (await this.serializer.serializeToBytes(address, tx)).toString();
+          break;
       }
     }
     return this.provider.dryRunTransaction(dryRunTxBytes);
   }
   async transferObject(transaction, requestType = "WaitForLocalExecution") {
-    const signerAddress = await this.getAddress();
-    const txBytes = await this.serializer.newTransferObject(
-      signerAddress,
-      transaction
+    return this.signAndExecuteTransaction(
+      { kind: "transferObject", data: transaction },
+      requestType
     );
-    return await this.signAndExecuteTransaction(txBytes, requestType);
   }
   async transferSui(transaction, requestType = "WaitForLocalExecution") {
-    const signerAddress = await this.getAddress();
-    const txBytes = await this.serializer.newTransferSui(
-      signerAddress,
-      transaction
+    return this.signAndExecuteTransaction(
+      { kind: "transferSui", data: transaction },
+      requestType
     );
-    return await this.signAndExecuteTransaction(txBytes, requestType);
   }
   async pay(transaction, requestType = "WaitForLocalExecution") {
-    const signerAddress = await this.getAddress();
-    const txBytes = await this.serializer.newPay(signerAddress, transaction);
-    return await this.signAndExecuteTransaction(txBytes, requestType);
+    return this.signAndExecuteTransaction(
+      { kind: "pay", data: transaction },
+      requestType
+    );
   }
   async paySui(transaction, requestType = "WaitForLocalExecution") {
-    const signerAddress = await this.getAddress();
-    const txBytes = await this.serializer.newPaySui(signerAddress, transaction);
-    return await this.signAndExecuteTransaction(txBytes, requestType);
+    return this.signAndExecuteTransaction(
+      { kind: "paySui", data: transaction },
+      requestType
+    );
   }
   async payAllSui(transaction, requestType = "WaitForLocalExecution") {
-    const signerAddress = await this.getAddress();
-    const txBytes = await this.serializer.newPayAllSui(
-      signerAddress,
-      transaction
+    return this.signAndExecuteTransaction(
+      { kind: "payAllSui", data: transaction },
+      requestType
     );
-    return await this.signAndExecuteTransaction(txBytes, requestType);
   }
   async mergeCoin(transaction, requestType = "WaitForLocalExecution") {
-    const signerAddress = await this.getAddress();
-    const txBytes = await this.serializer.newMergeCoin(
-      signerAddress,
-      transaction
+    return this.signAndExecuteTransaction(
+      { kind: "mergeCoin", data: transaction },
+      requestType
     );
-    return await this.signAndExecuteTransaction(txBytes, requestType);
   }
   async splitCoin(transaction, requestType = "WaitForLocalExecution") {
-    const signerAddress = await this.getAddress();
-    const txBytes = await this.serializer.newSplitCoin(
-      signerAddress,
-      transaction
+    return this.signAndExecuteTransaction(
+      { kind: "splitCoin", data: transaction },
+      requestType
     );
-    return await this.signAndExecuteTransaction(txBytes, requestType);
   }
   async executeMoveCall(transaction, requestType = "WaitForLocalExecution") {
-    const signerAddress = await this.getAddress();
-    const txBytes = await this.serializer.newMoveCall(
-      signerAddress,
-      transaction
+    return this.signAndExecuteTransaction(
+      { kind: "moveCall", data: transaction },
+      requestType
     );
-    return await this.signAndExecuteTransaction(txBytes, requestType);
   }
   async publish(transaction, requestType = "WaitForLocalExecution") {
-    const signerAddress = await this.getAddress();
-    const txBytes = await this.serializer.newPublish(
-      signerAddress,
-      transaction
+    return this.signAndExecuteTransaction(
+      { kind: "publish", data: transaction },
+      requestType
     );
-    return await this.signAndExecuteTransaction(txBytes, requestType);
   }
   async getGasCostEstimation(...args) {
     const txEffects = await this.dryRunTransaction(...args);
@@ -3657,7 +3733,7 @@ var ExampleNFT = class {
 };
 
 // src/wallet_client.ts
-var COIN_TYPE2 = 784;
+var COIN_TYPE = 784;
 var MAX_ACCOUNTS = 20;
 var DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER = 1e3;
 var endpoints = NETWORK_TO_API["DEVNET" /* DEVNET */];
@@ -3681,7 +3757,7 @@ var WalletClient = class {
   async importWallet(code) {
     const accountMetaData = [];
     for (let i = 0; i < MAX_ACCOUNTS; i += 1) {
-      const derivationPath = `m/44'/${COIN_TYPE2}'/${i}'/0'/0'`;
+      const derivationPath = `m/44'/${COIN_TYPE}'/${i}'/0'/0'`;
       const keypair = WalletClient.fromDerivePath(code, derivationPath);
       const address = keypair.getPublicKey().toSuiAddress();
       const publicKey = Buffer.from(keypair.getPublicKey().toBytes()).toString("hex");
@@ -3709,7 +3785,7 @@ var WalletClient = class {
     if (index >= MAX_ACCOUNTS) {
       throw new Error("Max no. of accounts reached");
     }
-    const derivationPath = `m/44'/${COIN_TYPE2}'/${index}'/0'/0'`;
+    const derivationPath = `m/44'/${COIN_TYPE}'/${index}'/0'/0'`;
     const keypair = WalletClient.fromDerivePath(code, derivationPath);
     const address = keypair.getPublicKey().toSuiAddress();
     const pubKey = Buffer.from(keypair.getPublicKey().toBytes()).toString(
@@ -3810,55 +3886,6 @@ var WalletClient = class {
     }));
     return coinIds;
   }
-  async generateTransaction(address, tx) {
-    let dryRunTxBytes;
-    if (typeof tx === "string") {
-      dryRunTxBytes = tx;
-    } else if (tx instanceof Base64DataBuffer) {
-      dryRunTxBytes = tx.toString();
-    } else {
-      switch (tx.kind) {
-        case "bytes":
-          dryRunTxBytes = new Base64DataBuffer(tx.data).toString();
-          break;
-        case "mergeCoin":
-          dryRunTxBytes = (await this.serializer.newMergeCoin(address, tx.data)).toString();
-          break;
-        case "moveCall":
-          dryRunTxBytes = (await this.serializer.newMoveCall(address, tx.data)).toString();
-          break;
-        case "pay":
-          dryRunTxBytes = (await this.serializer.newPay(address, tx.data)).toString();
-          break;
-        case "payAllSui":
-          dryRunTxBytes = (await this.serializer.newPayAllSui(address, tx.data)).toString();
-          break;
-        case "paySui":
-          dryRunTxBytes = (await this.serializer.newPaySui(address, tx.data)).toString();
-          break;
-        case "publish":
-          dryRunTxBytes = (await this.serializer.newPublish(address, tx.data)).toString();
-          break;
-        case "splitCoin":
-          dryRunTxBytes = (await this.serializer.newSplitCoin(address, tx.data)).toString();
-          break;
-        case "transferObject":
-          dryRunTxBytes = (await this.serializer.newTransferObject(address, tx.data)).toString();
-          break;
-        case "transferSui":
-          dryRunTxBytes = (await this.serializer.newTransferSui(address, tx.data)).toString();
-          break;
-        default:
-          throw new Error(
-            `Error, unknown transaction kind ${tx.kind}. Can't dry run transaction.`
-          );
-      }
-    }
-    if (typeof dryRunTxBytes === "string") {
-      return new Base64DataBuffer(dryRunTxBytes);
-    }
-    return dryRunTxBytes;
-  }
   async dryRunTransaction(address, tx) {
     let dryRunTxBytes;
     if (typeof tx === "string") {
@@ -3870,37 +3897,9 @@ var WalletClient = class {
         case "bytes":
           dryRunTxBytes = new Base64DataBuffer(tx.data).toString();
           break;
-        case "mergeCoin":
-          dryRunTxBytes = (await this.serializer.newMergeCoin(address, tx.data)).toString();
-          break;
-        case "moveCall":
-          dryRunTxBytes = (await this.serializer.newMoveCall(address, tx.data)).toString();
-          break;
-        case "pay":
-          dryRunTxBytes = (await this.serializer.newPay(address, tx.data)).toString();
-          break;
-        case "payAllSui":
-          dryRunTxBytes = (await this.serializer.newPayAllSui(address, tx.data)).toString();
-          break;
-        case "paySui":
-          dryRunTxBytes = (await this.serializer.newPaySui(address, tx.data)).toString();
-          break;
-        case "publish":
-          dryRunTxBytes = (await this.serializer.newPublish(address, tx.data)).toString();
-          break;
-        case "splitCoin":
-          dryRunTxBytes = (await this.serializer.newSplitCoin(address, tx.data)).toString();
-          break;
-        case "transferObject":
-          dryRunTxBytes = (await this.serializer.newTransferObject(address, tx.data)).toString();
-          break;
-        case "transferSui":
-          dryRunTxBytes = (await this.serializer.newTransferSui(address, tx.data)).toString();
-          break;
         default:
-          throw new Error(
-            `Error, unknown transaction kind ${tx.kind}. Can't dry run transaction.`
-          );
+          dryRunTxBytes = (await this.serializer.serializeToBytes(address, tx)).toString();
+          break;
       }
     }
     return this.provider.dryRunTransaction(dryRunTxBytes);
@@ -3919,19 +3918,16 @@ var WalletClient = class {
         );
         if (transactionData.effects.status.status === "success") {
           const events = transactionData.effects.events;
-          const coinBalanceReceiveEvents = events == null ? void 0 : events.filter(
-            (event) => {
-              var _a;
-              return event.coinBalanceChange && ((_a = event.coinBalanceChange.owner) == null ? void 0 : _a.AddressOwner) === address && event.coinBalanceChange.changeType !== "Gas" && event.coinBalanceChange.amount >= 0;
-            }
+          const coinBalanceReceiveEvents = events?.filter(
+            (event) => event.coinBalanceChange && event.coinBalanceChange.owner?.AddressOwner === address && event.coinBalanceChange.changeType !== "Gas" && event.coinBalanceChange.amount >= 0
           );
-          const coinBalanceSendEvents = events == null ? void 0 : events.filter(
+          const coinBalanceSendEvents = events?.filter(
             (event) => event.coinBalanceChange && event.coinBalanceChange.sender === address && event.coinBalanceChange.changeType !== "Gas" && event.coinBalanceChange.changeType !== "Pay"
           );
-          const transferEvents = events == null ? void 0 : events.filter(
+          const transferEvents = events?.filter(
             (event) => event.transferObject
           );
-          const moveEvents = events == null ? void 0 : events.filter((event) => event.moveEvent);
+          const moveEvents = events?.filter((event) => event.moveEvent);
           let totalCoinBalanceChange = 0;
           let changeType = {
             type: "",
@@ -3940,8 +3936,7 @@ var WalletClient = class {
             resourceType: "",
             changeTextSuffix: ""
           };
-          coinBalanceReceiveEvents == null ? void 0 : coinBalanceReceiveEvents.forEach((event) => {
-            var _a, _b, _c, _d;
+          coinBalanceReceiveEvents?.forEach((event) => {
             totalCoinBalanceChange += event.coinBalanceChange.amount;
             if (!changeType.type) {
               if (event.coinBalanceChange.sender === AIRDROP_SENDER) {
@@ -3949,39 +3944,37 @@ var WalletClient = class {
                   type: "Receive",
                   text: "Airdrop",
                   from: event.coinBalanceChange.sender,
-                  to: (_a = event.coinBalanceChange.owner) == null ? void 0 : _a.AddressOwner,
+                  to: event.coinBalanceChange.owner?.AddressOwner,
                   resourceType: event.coinBalanceChange.coinType,
-                  changeTextSuffix: " " + ((_b = event.coinBalanceChange.coinType) == null ? void 0 : _b.split("::")[2])
+                  changeTextSuffix: " " + event.coinBalanceChange.coinType?.split("::")[2]
                 };
               } else {
                 changeType = {
                   type: "Receive",
                   text: "Received",
                   from: event.coinBalanceChange.sender,
-                  to: (_c = event.coinBalanceChange.owner) == null ? void 0 : _c.AddressOwner,
+                  to: event.coinBalanceChange.owner?.AddressOwner,
                   resourceType: event.coinBalanceChange.coinType,
-                  changeTextSuffix: " " + ((_d = event.coinBalanceChange.coinType) == null ? void 0 : _d.split("::")[2])
+                  changeTextSuffix: " " + event.coinBalanceChange.coinType?.split("::")[2]
                 };
               }
             }
           });
-          coinBalanceSendEvents == null ? void 0 : coinBalanceSendEvents.forEach((event) => {
-            var _a, _b;
+          coinBalanceSendEvents?.forEach((event) => {
             totalCoinBalanceChange += event.coinBalanceChange.amount;
             if (!changeType.type) {
               changeType = {
                 type: "Send",
                 text: "Sent",
                 from: event.coinBalanceChange.sender,
-                to: (_a = event.coinBalanceChange.owner) == null ? void 0 : _a.AddressOwner,
+                to: event.coinBalanceChange.owner?.AddressOwner,
                 resourceType: event.coinBalanceChange.coinType,
-                changeTextSuffix: " " + ((_b = event.coinBalanceChange.coinType) == null ? void 0 : _b.split("::")[2])
+                changeTextSuffix: " " + event.coinBalanceChange.coinType?.split("::")[2]
               };
             }
           });
           await Promise.all(
-            transferEvents == null ? void 0 : transferEvents.map(async (event) => {
-              var _a, _b, _c, _d, _e, _f;
+            transferEvents?.map(async (event) => {
               if (event.transferObject.objectType === "0x2::devnet_nft::DevNetNFT") {
                 const nftData = await this.provider.getObject(
                   event.transferObject.objectId
@@ -3989,20 +3982,19 @@ var WalletClient = class {
                 const nftDetails = nftData.details;
                 changeType = {
                   nftData: nftDetails,
-                  type: ((_a = event.transferObject.recipient) == null ? void 0 : _a.AddressOwner) === address ? "Receive" : "Send",
-                  text: ((_b = event.transferObject.recipient) == null ? void 0 : _b.AddressOwner) === address ? "NFT Received" : "NFT Sent",
+                  type: event.transferObject.recipient?.AddressOwner === address ? "Receive" : "Send",
+                  text: event.transferObject.recipient?.AddressOwner === address ? "NFT Received" : "NFT Sent",
                   from: event.transferObject.sender,
-                  to: (_c = event.transferObject.recipient) == null ? void 0 : _c.AddressOwner,
+                  to: event.transferObject.recipient?.AddressOwner,
                   resourceType: event.transferObject.objectType,
-                  changeTextSuffix: ` ${(_e = (_d = nftDetails == null ? void 0 : nftDetails.data) == null ? void 0 : _d.fields) == null ? void 0 : _e.name}`
+                  changeTextSuffix: ` ${nftDetails?.data?.fields?.name}`
                 };
-                totalCoinBalanceChange = ((_f = event.transferObject.recipient) == null ? void 0 : _f.AddressOwner) === address ? 1 : -1;
+                totalCoinBalanceChange = event.transferObject.recipient?.AddressOwner === address ? 1 : -1;
               }
             })
           );
           await Promise.all(
-            moveEvents == null ? void 0 : moveEvents.map(async (event) => {
-              var _a, _b;
+            moveEvents?.map(async (event) => {
               if (event.moveEvent.type === "0x2::devnet_nft::MintNFTEvent") {
                 const nftData = await this.provider.getObject(
                   event.moveEvent.fields.object_id
@@ -4013,7 +4005,7 @@ var WalletClient = class {
                   type: "Receive",
                   text: "NFT Minted",
                   resourceType: event.moveEvent.type,
-                  changeTextSuffix: ` ${(_b = (_a = nftDetails == null ? void 0 : nftDetails.data) == null ? void 0 : _a.fields) == null ? void 0 : _b.name}`
+                  changeTextSuffix: ` ${nftDetails?.data?.fields?.name}`
                 };
                 totalCoinBalanceChange = 1;
               }
@@ -4085,7 +4077,6 @@ var WalletClient = class {
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   Base64DataBuffer,
-  COIN_TYPE,
   COIN_TYPE_ARG_REGEX,
   Coin,
   DEFAULT_ED25519_DERIVATION_PATH,
@@ -4117,13 +4108,17 @@ var WalletClient = class {
   Secp256k1Keypair,
   Secp256k1PublicKey,
   SignerWithProvider,
+  TRANSACTION_DATA_TYPE_TAG,
   UID_STRUCT_NAME,
   WalletClient,
   bcs,
   bytesEqual,
+  deserializeTransactionBytesToTransactionData,
   extractMutableReference,
   extractReference,
   extractStructTag,
+  fromExportedKeypair,
+  generateTransactionDigest,
   getCertifiedTransaction,
   getChangeEpochTransaction,
   getCoinAfterMerge,
@@ -4181,7 +4176,7 @@ var WalletClient = class {
   isCallArg,
   isCertifiedTransaction,
   isCoinBalanceChangeEvent,
-  isCoinDenominationInfoResponse,
+  isCoinMetadata,
   isDelegationData,
   isDelegationSuiObject,
   isDeleteObjectEvent,
@@ -4271,6 +4266,7 @@ var WalletClient = class {
   isSuiParsedPublishResponse,
   isSuiParsedSplitCoinResponse,
   isSuiParsedTransactionResponse,
+  isSuiTransactionAuthSignersResponse,
   isSuiTransactionData,
   isSuiTransactionKind,
   isSuiTransactionResponse,
@@ -4297,6 +4293,7 @@ var WalletClient = class {
   mnemonicToSeedHex,
   normalizeSuiAddress,
   normalizeSuiObjectId,
-  parseVersionFromString
+  parseVersionFromString,
+  versionToString
 });
 //# sourceMappingURL=index.js.map

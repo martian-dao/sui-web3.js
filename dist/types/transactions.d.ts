@@ -1,4 +1,5 @@
 import { ObjectOwner, SuiAddress, TransactionDigest } from './common';
+import { SuiEvent } from './events';
 import { ObjectId, SuiMovePackage, SuiObject, SuiObjectRef } from './objects';
 export declare type TransferObject = {
     recipient: SuiAddress;
@@ -106,7 +107,7 @@ export declare type TransactionEffects = {
      */
     gasObject: OwnedObjectRef;
     /** The events emitted during execution. Note that only successful transactions emit events */
-    events?: any[];
+    events?: SuiEvent[];
     /** The set of transaction digests this transaction depends on */
     dependencies?: TransactionDigest[];
 };
@@ -115,6 +116,9 @@ export declare type SuiTransactionResponse = {
     effects: TransactionEffects;
     timestamp_ms: number | null;
     parsed_data: SuiParsedTransactionResponse | null;
+};
+export declare type SuiTransactionAuthSignersResponse = {
+    signers: AuthorityName[];
 };
 export declare type SuiCertifiedTransactionEffects = {
     effects: TransactionEffects;
@@ -220,7 +224,7 @@ export declare function getExecutionStatusError(data: SuiTransactionResponse | S
 export declare function getExecutionStatusGasSummary(data: SuiTransactionResponse | SuiExecuteTransactionResponse | TransactionEffects): GasCostSummary | undefined;
 export declare function getTotalGasUsed(data: SuiTransactionResponse | SuiExecuteTransactionResponse | TransactionEffects): number | undefined;
 export declare function getTransactionEffects(data: SuiExecuteTransactionResponse | SuiTransactionResponse): TransactionEffects | undefined;
-export declare function getEvents(data: SuiExecuteTransactionResponse | SuiTransactionResponse): any;
+export declare function getEvents(data: SuiExecuteTransactionResponse | SuiTransactionResponse): SuiEvent[] | undefined;
 export declare function getCreatedObjects(data: SuiExecuteTransactionResponse | SuiTransactionResponse): OwnedObjectRef[] | undefined;
 export declare function getTimestampFromTransactionResponse(data: SuiExecuteTransactionResponse | SuiTransactionResponse): number | undefined;
 export declare function getParsedSplitCoinResponse(data: SuiTransactionResponse): SuiParsedSplitCoinResponse | undefined;

@@ -150,6 +150,12 @@ class Ed25519Keypair {
         fullPrivateKey.set(pubkey, 32);
         return new Ed25519Keypair({ publicKey: pubkey, secretKey: fullPrivateKey });
     }
+    export() {
+        return {
+            schema: 'ED25519',
+            privateKey: (0, bcs_1.toB64)(this.keypair.secretKey),
+        };
+    }
 }
 exports.Ed25519Keypair = Ed25519Keypair;
 //# sourceMappingURL=ed25519-keypair.js.map

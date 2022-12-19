@@ -2,7 +2,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Delegation = exports.Coin = exports.COIN_TYPE_ARG_REGEX = exports.PAY_JOIN_COIN_FUNC_NAME = exports.PAY_SPLIT_COIN_VEC_FUNC_NAME = exports.PAY_MODULE_NAME = exports.COIN_TYPE = exports.SUI_TYPE_ARG = exports.ID_STRUCT_NAME = exports.UID_STRUCT_NAME = exports.OBJECT_MODULE_NAME = exports.MOVE_STDLIB_ADDRESS = exports.SUI_FRAMEWORK_ADDRESS = void 0;
+exports.Delegation = exports.Coin = exports.COIN_TYPE_ARG_REGEX = exports.PAY_JOIN_COIN_FUNC_NAME = exports.PAY_SPLIT_COIN_VEC_FUNC_NAME = exports.PAY_MODULE_NAME = exports.SUI_TYPE_ARG = exports.ID_STRUCT_NAME = exports.UID_STRUCT_NAME = exports.OBJECT_MODULE_NAME = exports.MOVE_STDLIB_ADDRESS = exports.SUI_FRAMEWORK_ADDRESS = void 0;
 const objects_1 = require("./objects");
 const common_1 = require("./common");
 const option_1 = require("./option");
@@ -13,7 +13,6 @@ exports.OBJECT_MODULE_NAME = 'object';
 exports.UID_STRUCT_NAME = 'UID';
 exports.ID_STRUCT_NAME = 'ID';
 exports.SUI_TYPE_ARG = `${exports.SUI_FRAMEWORK_ADDRESS}::sui::SUI`;
-exports.COIN_TYPE = `${exports.SUI_FRAMEWORK_ADDRESS}::coin::Coin`;
 // `sui::pay` module is used for Coin management (split, join, join_and_transfer etc);
 exports.PAY_MODULE_NAME = 'pay';
 exports.PAY_SPLIT_COIN_VEC_FUNC_NAME = 'split_vec';
@@ -25,7 +24,7 @@ exports.COIN_TYPE_ARG_REGEX = /^0x2::coin::Coin<(.+)>$/;
  */
 class Coin {
     static isCoin(data) {
-        return Coin.getType(data)?.startsWith(exports.COIN_TYPE) ?? false;
+        return Coin.getType(data)?.match(exports.COIN_TYPE_ARG_REGEX) != null;
     }
     static getCoinType(type) {
         const [, res] = type.match(exports.COIN_TYPE_ARG_REGEX) ?? [];
@@ -142,68 +141,53 @@ class Coin {
         return data.type;
     }
     /**
-     * Creates and executes a transaction to transfer coins to a recipient address.
-     * @param signer User's signer
-     * @param allCoins All the coins that are owned by the user. Can be only the relevant type of coins for the transfer, Sui for gas and the coins with the same type as the type to send.
-     * @param coinTypeArg The coin type argument (Coin<T> the T) of the coin to send
-     * @param amountToSend Total amount to send to recipient
-     * @param recipient Recipient's address
-     * @param gasBudget Gas budget for the tx
-     * @throws in case of insufficient funds, network errors etc
-     */
-    static async transfer(signer, allCoins, coinTypeArg, amountToSend, recipient, gasBudget) {
-        const tx = await Coin.newTransferTx(signer, allCoins, coinTypeArg, amountToSend, recipient, gasBudget);
-        return signer.signAndExecuteTransaction(tx);
-    }
-    /**
      * Create a new transaction for sending coins ready to be signed and executed.
-     * @param signer User's signer
-     * @param allCoins All the coins that are owned by the user. Can be only the relevant type of coins for the transfer, Sui for gas and the coins with the same type as the type to send.
+     * @param allCoins All the coins that are owned by the sender. Can be only the relevant type of coins for the transfer, Sui for gas and the coins with the same type as the type to send.
      * @param coinTypeArg The coin type argument (Coin<T> the T) of the coin to send
      * @param amountToSend Total amount to send to recipient
      * @param recipient Recipient's address
      * @param gasBudget Gas budget for the tx
-     * @throws in case of insufficient funds, network errors etc
+     * @throws in case of insufficient funds
      */
-    static async newTransferTx(signer, allCoins, coinTypeArg, amountToSend, recipient, gasBudget) {
+    static async newPayTransaction(allCoins, coinTypeArg, amountToSend, recipient, gasBudget) {
         const isSuiTransfer = coinTypeArg === exports.SUI_TYPE_ARG;
         const coinsOfTransferType = allCoins.filter((aCoin) => Coin.getCoinTypeArg(aCoin) === coinTypeArg);
-        const totalAmountIncludingGas = amountToSend + BigInt(isSuiTransfer ? gasBudget : 0);
-        const inputCoinObjs = await Coin.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(coinsOfTransferType, totalAmountIncludingGas);
-        if (!inputCoinObjs.length) {
+        const coinsOfGas = isSuiTransfer
+            ? coinsOfTransferType
+            : allCoins.filter((aCoin) => Coin.isSUI(aCoin));
+        const gasCoin = Coin.selectCoinWithBalanceGreaterThanOrEqual(coinsOfGas, BigInt(gasBudget));
+        if (!gasCoin) {
+            // TODO: denomination for gasBudget?
+            throw new Error(`Unable to find a coin to cover the gas budget ${gasBudget}`);
+        }
+        const totalAmountIncludingGas = amountToSend +
+            BigInt(isSuiTransfer
+                ? // subtract from the total the balance of the gasCoin as it's going be the first element of the inputCoins
+                    BigInt(gasBudget) - BigInt(Coin.getBalance(gasCoin) || 0)
+                : 0);
+        const inputCoinObjs = totalAmountIncludingGas > 0
+            ? await Coin.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(coinsOfTransferType, totalAmountIncludingGas, isSuiTransfer ? [Coin.getID(gasCoin)] : [])
+            : [];
+        if (totalAmountIncludingGas > 0 && !inputCoinObjs.length) {
             const totalBalanceOfTransferType = Coin.totalBalance(coinsOfTransferType);
             const suggestedAmountToSend = totalBalanceOfTransferType - BigInt(isSuiTransfer ? gasBudget : 0);
             // TODO: denomination for values?
             throw new Error(`Coin balance ${totalBalanceOfTransferType} is not sufficient to cover the transfer amount ` +
                 `${amountToSend}. Try reducing the transfer amount to ${suggestedAmountToSend}.`);
         }
-        if (!isSuiTransfer) {
-            const allGasCoins = allCoins.filter((aCoin) => Coin.isSUI(aCoin));
-            const gasCoin = Coin.selectCoinWithBalanceGreaterThanOrEqual(allGasCoins, BigInt(gasBudget));
-            if (!gasCoin) {
-                // TODO: denomination for gasBudget?
-                throw new Error(`Unable to find a coin to cover the gas budget ${gasBudget}`);
-            }
-        }
-        const signerAddress = await signer.getAddress();
-        const inputCoins = inputCoinObjs.map(Coin.getID);
-        const txCommon = {
-            inputCoins,
-            recipients: [recipient],
-            // TODO: change this to string to avoid losing precision
-            amounts: [Number(amountToSend)],
-            gasBudget: Number(gasBudget),
-        };
         if (isSuiTransfer) {
-            return signer.serializer.newPaySui(signerAddress, {
-                ...txCommon,
-            });
+            inputCoinObjs.unshift(gasCoin);
         }
-        return signer.serializer.newPay(signerAddress, {
-            ...txCommon,
-            // we know there is a gas coin with enough balance to cover
-            // the gas budget let rpc select one for us
-        });
+        return {
+            kind: isSuiTransfer ? 'paySui' : 'pay',
+            data: {
+                inputCoins: inputCoinObjs.map(Coin.getID),
+                recipients: [recipient],
+                // TODO: change this to string to avoid losing precision
+                amounts: [Number(amountToSend)],
+                gasBudget: Number(gasBudget),
+            },
+        };
     }
 }
 exports.Coin = Coin;
