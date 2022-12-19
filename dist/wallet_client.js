@@ -215,55 +215,6 @@ class WalletClient {
         }));
         return coinIds;
     }
-    async generateTransaction(address, tx) {
-        let dryRunTxBytes;
-        if (typeof tx === 'string') {
-            dryRunTxBytes = tx;
-        }
-        else if (tx instanceof base64_1.Base64DataBuffer) {
-            dryRunTxBytes = tx.toString();
-        }
-        else {
-            switch (tx.kind) {
-                case 'bytes':
-                    dryRunTxBytes = new base64_1.Base64DataBuffer(tx.data).toString();
-                    break;
-                case 'mergeCoin':
-                    dryRunTxBytes = (await this.serializer.newMergeCoin(address, tx.data)).toString();
-                    break;
-                case 'moveCall':
-                    dryRunTxBytes = (await this.serializer.newMoveCall(address, tx.data)).toString();
-                    break;
-                case 'pay':
-                    dryRunTxBytes = (await this.serializer.newPay(address, tx.data)).toString();
-                    break;
-                case 'payAllSui':
-                    dryRunTxBytes = (await this.serializer.newPayAllSui(address, tx.data)).toString();
-                    break;
-                case 'paySui':
-                    dryRunTxBytes = (await this.serializer.newPaySui(address, tx.data)).toString();
-                    break;
-                case 'publish':
-                    dryRunTxBytes = (await this.serializer.newPublish(address, tx.data)).toString();
-                    break;
-                case 'splitCoin':
-                    dryRunTxBytes = (await this.serializer.newSplitCoin(address, tx.data)).toString();
-                    break;
-                case 'transferObject':
-                    dryRunTxBytes = (await this.serializer.newTransferObject(address, tx.data)).toString();
-                    break;
-                case 'transferSui':
-                    dryRunTxBytes = (await this.serializer.newTransferSui(address, tx.data)).toString();
-                    break;
-                default:
-                    throw new Error(`Error, unknown transaction kind ${tx.kind}. Can't dry run transaction.`);
-            }
-        }
-        if (typeof dryRunTxBytes === 'string') {
-            return new base64_1.Base64DataBuffer(dryRunTxBytes);
-        }
-        return dryRunTxBytes;
-    }
     /**
      * Dry run a transaction and return the result.
      * @param address address of the account
@@ -283,35 +234,9 @@ class WalletClient {
                 case 'bytes':
                     dryRunTxBytes = new base64_1.Base64DataBuffer(tx.data).toString();
                     break;
-                case 'mergeCoin':
-                    dryRunTxBytes = (await this.serializer.newMergeCoin(address, tx.data)).toString();
-                    break;
-                case 'moveCall':
-                    dryRunTxBytes = (await this.serializer.newMoveCall(address, tx.data)).toString();
-                    break;
-                case 'pay':
-                    dryRunTxBytes = (await this.serializer.newPay(address, tx.data)).toString();
-                    break;
-                case 'payAllSui':
-                    dryRunTxBytes = (await this.serializer.newPayAllSui(address, tx.data)).toString();
-                    break;
-                case 'paySui':
-                    dryRunTxBytes = (await this.serializer.newPaySui(address, tx.data)).toString();
-                    break;
-                case 'publish':
-                    dryRunTxBytes = (await this.serializer.newPublish(address, tx.data)).toString();
-                    break;
-                case 'splitCoin':
-                    dryRunTxBytes = (await this.serializer.newSplitCoin(address, tx.data)).toString();
-                    break;
-                case 'transferObject':
-                    dryRunTxBytes = (await this.serializer.newTransferObject(address, tx.data)).toString();
-                    break;
-                case 'transferSui':
-                    dryRunTxBytes = (await this.serializer.newTransferSui(address, tx.data)).toString();
-                    break;
                 default:
-                    throw new Error(`Error, unknown transaction kind ${tx.kind}. Can't dry run transaction.`);
+                    dryRunTxBytes = (await this.serializer.serializeToBytes(address, tx)).toString();
+                    break;
             }
         }
         return this.provider.dryRunTransaction(dryRunTxBytes);

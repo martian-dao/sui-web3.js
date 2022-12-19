@@ -34,6 +34,7 @@ const secp256k1_publickey_1 = require("./secp256k1-publickey");
 const secp256k1_1 = require("@noble/secp256k1");
 const mnemonics_1 = require("./mnemonics");
 const bip32_1 = require("@scure/bip32");
+const bcs_1 = require("@mysten/bcs");
 exports.DEFAULT_SECP256K1_DERIVATION_PATH = "m/54'/784'/0'/0/0";
 secp.utils.hmacSha256Sync = (key, ...msgs) => {
     const h = hmac_1.hmac.create(sha256_1.sha256, key);
@@ -147,6 +148,12 @@ class Secp256k1Keypair {
             publicKey: key.publicKey,
             secretKey: key.privateKey,
         });
+    }
+    export() {
+        return {
+            schema: 'Secp256k1',
+            privateKey: (0, bcs_1.toB64)(this.keypair.secretKey),
+        };
     }
 }
 exports.Secp256k1Keypair = Secp256k1Keypair;

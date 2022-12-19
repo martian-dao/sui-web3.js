@@ -2,9 +2,9 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isBalanceChangeType = exports.isEventType = exports.isPaginatedEvents = exports.isEventId = exports.isEventQuery = exports.isMoveEventField = exports.isSuiEvent = exports.isNewObjectEvent = exports.isDeleteObjectEvent = exports.isMutateObjectEvent = exports.isTransferObjectEvent = exports.isCoinBalanceChangeEvent = exports.isPublishEvent = exports.isMoveEvent = exports.isOrder = exports.isSequenceNumber = exports.isObjectId = exports.isObjectDigest = exports.isGetObjectDataResponse = exports.isGetOwnedObjectsResponse = exports.isObjectType = exports.isObjectStatus = exports.isSuiObject = exports.isSuiMoveNormalizedStructType = exports.isSuiMoveNormalizedTypeParameterType = exports.isSuiMoveNormalizedType = exports.isSuiMoveAbilitySet = exports.isSuiMoveTypeParameterIndex = exports.isSuiMoveVisibility = exports.isSuiMoveNormalizedFunction = exports.isSuiMoveNormalizedField = exports.isSuiMoveStructTypeParameter = exports.isSuiMoveNormalizedStruct = exports.isSuiMoveModuleId = exports.isSuiMoveNormalizedModule = exports.isSuiMoveNormalizedModules = exports.isSuiMoveFunctionArgTypes = exports.isSuiMoveFunctionArgType = exports.isSuiMoveFunctionArgTypesResponse = exports.isSuiMovePackage = exports.isCoinDenominationInfoResponse = exports.isSuiMoveObject = exports.isSuiData = exports.isMovePackageContent = exports.isObjectContentFields = exports.isSuiObjectInfo = exports.isSuiObjectRef = exports.isObjectOwner = exports.isSuiAddress = exports.isTransactionDigest = void 0;
-exports.isPublishTx = exports.isPayAllSuiTx = exports.isPaySuiTx = exports.isPayTx = exports.isTransferSuiTx = exports.isTransferObjectTx = exports.isDelegationSuiObject = exports.isDelegationData = exports.isSuiParsedTransactionResponse = exports.isSuiPackage = exports.isSuiParsedPublishResponse = exports.isSuiParsedSplitCoinResponse = exports.isSuiParsedMergeCoinResponse = exports.isTransactionBytes = exports.isAuthoritySignature = exports.isAuthorityName = exports.isEmptySignInfo = exports.isSuiJsonValue = exports.isMoveCall = exports.isTransactionQuery = exports.isPaginatedTransactionDigests = exports.isGetTxnDigestsResponse = exports.isGatewayTxSeqNumber = exports.isSuiExecuteTransactionResponse = exports.isSuiCertifiedTransactionEffects = exports.isSuiTransactionResponse = exports.isTransactionEffects = exports.isOwnedObjectRef = exports.isExecutionStatus = exports.isExecutionStatusType = exports.isGasCostSummary = exports.isCertifiedTransaction = exports.isAuthorityQuorumSignInfo = exports.isGenericAuthoritySignature = exports.isEpochId = exports.isSuiTransactionData = exports.isSuiTransactionKind = exports.isTransactionKindName = exports.isExecuteTransactionRequestType = exports.isPayAllSui = exports.isPaySui = exports.isPay = exports.isSuiChangeEpoch = exports.isSuiTransferSui = exports.isTransferObject = exports.isSubscriptionEvent = exports.isSubscriptionId = exports.isSuiEvents = exports.isSuiEventEnvelope = exports.isSuiEventFilter = void 0;
-exports.isFaucetResponse = exports.isFaucetCoinInfo = exports.isRpcApiVersion = exports.isTransactionData = exports.isTransactionKind = exports.isTransaction = exports.isMoveCallTx = exports.isTypeTag = exports.isStructTag = exports.isCallArg = exports.isObjectArg = exports.isSharedObjectRef = void 0;
+exports.isSuiEventFilter = exports.isBalanceChangeType = exports.isEventType = exports.isPaginatedEvents = exports.isEventId = exports.isEventQuery = exports.isMoveEventField = exports.isSuiEvent = exports.isNewObjectEvent = exports.isDeleteObjectEvent = exports.isMutateObjectEvent = exports.isTransferObjectEvent = exports.isCoinBalanceChangeEvent = exports.isPublishEvent = exports.isMoveEvent = exports.isOrder = exports.isSequenceNumber = exports.isObjectId = exports.isObjectDigest = exports.isGetObjectDataResponse = exports.isGetOwnedObjectsResponse = exports.isObjectType = exports.isObjectStatus = exports.isSuiObject = exports.isSuiMoveNormalizedStructType = exports.isSuiMoveNormalizedTypeParameterType = exports.isSuiMoveNormalizedType = exports.isSuiMoveAbilitySet = exports.isSuiMoveTypeParameterIndex = exports.isSuiMoveVisibility = exports.isSuiMoveNormalizedFunction = exports.isSuiMoveNormalizedField = exports.isSuiMoveStructTypeParameter = exports.isSuiMoveNormalizedStruct = exports.isSuiMoveModuleId = exports.isSuiMoveNormalizedModule = exports.isSuiMoveNormalizedModules = exports.isSuiMoveFunctionArgTypes = exports.isSuiMoveFunctionArgType = exports.isSuiMoveFunctionArgTypesResponse = exports.isSuiMovePackage = exports.isSuiMoveObject = exports.isSuiData = exports.isMovePackageContent = exports.isObjectContentFields = exports.isSuiObjectInfo = exports.isSuiObjectRef = exports.isObjectOwner = exports.isSuiAddress = exports.isTransactionDigest = void 0;
+exports.isPayAllSuiTx = exports.isPaySuiTx = exports.isPayTx = exports.isTransferSuiTx = exports.isTransferObjectTx = exports.isDelegationSuiObject = exports.isDelegationData = exports.isCoinMetadata = exports.isSuiParsedTransactionResponse = exports.isSuiPackage = exports.isSuiParsedPublishResponse = exports.isSuiParsedSplitCoinResponse = exports.isSuiParsedMergeCoinResponse = exports.isTransactionBytes = exports.isAuthoritySignature = exports.isAuthorityName = exports.isEmptySignInfo = exports.isSuiJsonValue = exports.isMoveCall = exports.isTransactionQuery = exports.isPaginatedTransactionDigests = exports.isGetTxnDigestsResponse = exports.isGatewayTxSeqNumber = exports.isSuiExecuteTransactionResponse = exports.isSuiCertifiedTransactionEffects = exports.isSuiTransactionAuthSignersResponse = exports.isSuiTransactionResponse = exports.isTransactionEffects = exports.isOwnedObjectRef = exports.isExecutionStatus = exports.isExecutionStatusType = exports.isGasCostSummary = exports.isCertifiedTransaction = exports.isAuthorityQuorumSignInfo = exports.isGenericAuthoritySignature = exports.isEpochId = exports.isSuiTransactionData = exports.isSuiTransactionKind = exports.isTransactionKindName = exports.isExecuteTransactionRequestType = exports.isPayAllSui = exports.isPaySui = exports.isPay = exports.isSuiChangeEpoch = exports.isSuiTransferSui = exports.isTransferObject = exports.isSubscriptionEvent = exports.isSubscriptionId = exports.isSuiEvents = exports.isSuiEventEnvelope = void 0;
+exports.isFaucetResponse = exports.isFaucetCoinInfo = exports.isRpcApiVersion = exports.isTransactionData = exports.isTransactionKind = exports.isTransaction = exports.isMoveCallTx = exports.isTypeTag = exports.isStructTag = exports.isCallArg = exports.isObjectArg = exports.isSharedObjectRef = exports.isPublishTx = void 0;
 function isTransactionDigest(obj, _argumentName) {
     return (typeof obj === "string");
 }
@@ -90,15 +90,6 @@ function isSuiMoveObject(obj, _argumentName) {
         typeof obj.has_public_transfer === "boolean");
 }
 exports.isSuiMoveObject = isSuiMoveObject;
-function isCoinDenominationInfoResponse(obj, _argumentName) {
-    return ((obj !== null &&
-        typeof obj === "object" ||
-        typeof obj === "function") &&
-        isTransactionDigest(obj.coinType) &&
-        isTransactionDigest(obj.basicUnit) &&
-        isSuiMoveTypeParameterIndex(obj.decimalNumber));
-}
-exports.isCoinDenominationInfoResponse = isCoinDenominationInfoResponse;
 function isSuiMovePackage(obj, _argumentName) {
     return ((obj !== null &&
         typeof obj === "object" ||
@@ -804,6 +795,7 @@ function isTransactionEffects(obj, _argumentName) {
         obj.wrapped.every((e) => isSuiObjectRef(e)) &&
         isOwnedObjectRef(obj.gasObject) &&
         Array.isArray(obj.events) &&
+        obj.events.every((e) => isSuiEvent(e)) &&
         Array.isArray(obj.dependencies) &&
         obj.dependencies.every((e) => isTransactionDigest(e)));
 }
@@ -818,6 +810,14 @@ function isSuiTransactionResponse(obj, _argumentName) {
         isSuiParsedTransactionResponse(obj.parsed_data));
 }
 exports.isSuiTransactionResponse = isSuiTransactionResponse;
+function isSuiTransactionAuthSignersResponse(obj, _argumentName) {
+    return ((obj !== null &&
+        typeof obj === "object" ||
+        typeof obj === "function") &&
+        Array.isArray(obj.signers) &&
+        obj.signers.every((e) => isTransactionDigest(e)));
+}
+exports.isSuiTransactionAuthSignersResponse = isSuiTransactionAuthSignersResponse;
 function isSuiCertifiedTransactionEffects(obj, _argumentName) {
     return ((obj !== null &&
         typeof obj === "object" ||
@@ -991,6 +991,18 @@ function isSuiParsedTransactionResponse(obj, _argumentName) {
             isSuiParsedPublishResponse(obj.Publish)));
 }
 exports.isSuiParsedTransactionResponse = isSuiParsedTransactionResponse;
+function isCoinMetadata(obj, _argumentName) {
+    return ((obj !== null &&
+        typeof obj === "object" ||
+        typeof obj === "function") &&
+        isSuiMoveTypeParameterIndex(obj.decimals) &&
+        isTransactionDigest(obj.name) &&
+        isTransactionDigest(obj.symbol) &&
+        isTransactionDigest(obj.description) &&
+        isTransactionDigest(obj.iconUrl) &&
+        isTransactionDigest(obj.id));
+}
+exports.isCoinMetadata = isCoinMetadata;
 function isDelegationData(obj, _argumentName) {
     return (isSuiMoveObject(obj) &&
         (obj !== null &&

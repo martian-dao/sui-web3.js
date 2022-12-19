@@ -2,14 +2,15 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.parseVersionFromString = void 0;
+exports.versionToString = exports.parseVersionFromString = void 0;
+const femver_1 = require("@suchipi/femver");
 function parseVersionFromString(version) {
-    const versions = version.split('.');
-    return {
-        major: parseInt(versions[0], 10),
-        minor: parseInt(versions[1], 10),
-        patch: parseInt(versions[2], 10),
-    };
+    return (0, femver_1.parse)(version);
 }
 exports.parseVersionFromString = parseVersionFromString;
+function versionToString(version) {
+    const { major, minor, patch } = version;
+    return `${major}.${minor}.${patch}`;
+}
+exports.versionToString = versionToString;
 //# sourceMappingURL=version.js.map

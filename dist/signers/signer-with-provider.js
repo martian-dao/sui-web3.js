@@ -8,6 +8,9 @@ const void_provider_1 = require("../providers/void-provider");
 const base64_1 = require("../serialization/base64");
 const types_1 = require("../types");
 const rpc_txn_data_serializer_1 = require("./txn-data-serializers/rpc-txn-data-serializer");
+// See: sui/crates/sui-types/src/intent.rs 
+// This is currently hardcoded with [IntentScope::TransactionData = 0, Version::V0 = 0, AppId::Sui = 0]
+const INTENT_BYTES = [0, 0, 0];
 ///////////////////////////////
 // Exported Abstracts
 class SignerWithProvider {
@@ -43,31 +46,49 @@ class SignerWithProvider {
             const txBytes = transaction instanceof base64_1.Base64DataBuffer
                 ? transaction
                 : new base64_1.Base64DataBuffer(transaction.data);
-            const sig = await this.signData(txBytes);
-            return await this.provider.executeTransaction(txBytes.toString(), sig.signatureScheme, sig.signature.toString(), sig.pubKey.toString(), requestType);
+            const version = await this.provider.getRpcApiVersion();
+            let dataToSign;
+            let txBytesToSubmit;
+            if (version?.major == 0 && version?.minor < 19) {
+                dataToSign = txBytes;
+                txBytesToSubmit = txBytes;
+            }
+            else {
+                const intentMessage = new Uint8Array(INTENT_BYTES.length + txBytes.getLength());
+                intentMessage.set(INTENT_BYTES);
+                intentMessage.set(txBytes.getData(), INTENT_BYTES.length);
+                dataToSign = new base64_1.Base64DataBuffer(intentMessage);
+                txBytesToSubmit = txBytes;
+            }
+            const sig = await this.signData(dataToSign);
+            return await this.provider.executeTransaction(txBytesToSubmit, sig.signatureScheme, sig.signature, sig.pubKey, requestType);
         }
-        switch (transaction.kind) {
-            case 'moveCall':
-                return this.executeMoveCall(transaction.data, requestType);
-            case 'transferSui':
-                return this.transferSui(transaction.data, requestType);
-            case 'transferObject':
-                return this.transferObject(transaction.data, requestType);
-            case 'mergeCoin':
-                return this.mergeCoin(transaction.data, requestType);
-            case 'splitCoin':
-                return this.splitCoin(transaction.data, requestType);
-            case 'pay':
-                return this.pay(transaction.data, requestType);
-            case 'paySui':
-                return this.paySui(transaction.data, requestType);
-            case 'payAllSui':
-                return this.payAllSui(transaction.data, requestType);
-            case 'publish':
-                return this.publish(transaction.data, requestType);
-            default:
-                throw new Error(`Unknown transaction kind: "${transaction.kind}"`);
+        return await this.signAndExecuteTransaction(await this.serializer.serializeToBytes(await this.getAddress(), transaction), requestType);
+    }
+    async getTransactionDigest(tx) {
+        let txBytes;
+        if (tx instanceof base64_1.Base64DataBuffer || tx.kind === 'bytes') {
+            txBytes =
+                tx instanceof base64_1.Base64DataBuffer ? tx : new base64_1.Base64DataBuffer(tx.data);
         }
+        else {
+            txBytes = await this.serializer.serializeToBytes(await this.getAddress(), tx);
+        }
+        const version = await this.provider.getRpcApiVersion();
+        const useIntentSigning = version != null && version.major >= 0 && version.minor > 18;
+        let dataToSign;
+        if (useIntentSigning) {
+            const intentMessage = new Uint8Array(INTENT_BYTES.length + txBytes.getLength());
+            intentMessage.set(INTENT_BYTES);
+            intentMessage.set(txBytes.getData(), INTENT_BYTES.length);
+            dataToSign = new base64_1.Base64DataBuffer(intentMessage);
+        }
+        else {
+            dataToSign = txBytes;
+        }
+        const sig = await this.signData(dataToSign);
+        const data = (0, types_1.deserializeTransactionBytesToTransactionData)(useIntentSigning, txBytes);
+        return (0, types_1.generateTransactionDigest)(data, sig.signatureScheme, sig.signature, sig.pubKey, (version?.major == 0 && version?.minor < 18) ? 'base64' : 'base58', (version?.major == 0 && version?.minor < 18) ? false : true);
     }
     /**
      * Dry run a transaction and return the result.
@@ -88,35 +109,9 @@ class SignerWithProvider {
                 case 'bytes':
                     dryRunTxBytes = new base64_1.Base64DataBuffer(tx.data).toString();
                     break;
-                case 'mergeCoin':
-                    dryRunTxBytes = (await this.serializer.newMergeCoin(address, tx.data)).toString();
-                    break;
-                case 'moveCall':
-                    dryRunTxBytes = (await this.serializer.newMoveCall(address, tx.data)).toString();
-                    break;
-                case 'pay':
-                    dryRunTxBytes = (await this.serializer.newPay(address, tx.data)).toString();
-                    break;
-                case 'payAllSui':
-                    dryRunTxBytes = (await this.serializer.newPayAllSui(address, tx.data)).toString();
-                    break;
-                case 'paySui':
-                    dryRunTxBytes = (await this.serializer.newPaySui(address, tx.data)).toString();
-                    break;
-                case 'publish':
-                    dryRunTxBytes = (await this.serializer.newPublish(address, tx.data)).toString();
-                    break;
-                case 'splitCoin':
-                    dryRunTxBytes = (await this.serializer.newSplitCoin(address, tx.data)).toString();
-                    break;
-                case 'transferObject':
-                    dryRunTxBytes = (await this.serializer.newTransferObject(address, tx.data)).toString();
-                    break;
-                case 'transferSui':
-                    dryRunTxBytes = (await this.serializer.newTransferSui(address, tx.data)).toString();
-                    break;
                 default:
-                    throw new Error(`Error, unknown transaction kind ${tx.kind}. Can't dry run transaction.`);
+                    dryRunTxBytes = (await this.serializer.serializeToBytes(address, tx)).toString();
+                    break;
             }
         }
         return this.provider.dryRunTransaction(dryRunTxBytes);
@@ -127,9 +122,7 @@ class SignerWithProvider {
      * for execution
      */
     async transferObject(transaction, requestType = 'WaitForLocalExecution') {
-        const signerAddress = await this.getAddress();
-        const txBytes = await this.serializer.newTransferObject(signerAddress, transaction);
-        return await this.signAndExecuteTransaction(txBytes, requestType);
+        return this.signAndExecuteTransaction({ kind: 'transferObject', data: transaction }, requestType);
     }
     /**
      *
@@ -137,34 +130,26 @@ class SignerWithProvider {
      * for execution
      */
     async transferSui(transaction, requestType = 'WaitForLocalExecution') {
-        const signerAddress = await this.getAddress();
-        const txBytes = await this.serializer.newTransferSui(signerAddress, transaction);
-        return await this.signAndExecuteTransaction(txBytes, requestType);
+        return this.signAndExecuteTransaction({ kind: 'transferSui', data: transaction }, requestType);
     }
     /**
      *
      * Serialize and Sign a `Pay` transaction and submit to the fullnode for execution
      */
     async pay(transaction, requestType = 'WaitForLocalExecution') {
-        const signerAddress = await this.getAddress();
-        const txBytes = await this.serializer.newPay(signerAddress, transaction);
-        return await this.signAndExecuteTransaction(txBytes, requestType);
+        return this.signAndExecuteTransaction({ kind: 'pay', data: transaction }, requestType);
     }
     /**
      * Serialize and Sign a `PaySui` transaction and submit to the fullnode for execution
      */
     async paySui(transaction, requestType = 'WaitForLocalExecution') {
-        const signerAddress = await this.getAddress();
-        const txBytes = await this.serializer.newPaySui(signerAddress, transaction);
-        return await this.signAndExecuteTransaction(txBytes, requestType);
+        return this.signAndExecuteTransaction({ kind: 'paySui', data: transaction }, requestType);
     }
     /**
      * Serialize and Sign a `PayAllSui` transaction and submit to the fullnode for execution
      */
     async payAllSui(transaction, requestType = 'WaitForLocalExecution') {
-        const signerAddress = await this.getAddress();
-        const txBytes = await this.serializer.newPayAllSui(signerAddress, transaction);
-        return await this.signAndExecuteTransaction(txBytes, requestType);
+        return this.signAndExecuteTransaction({ kind: 'payAllSui', data: transaction }, requestType);
     }
     /**
      *
@@ -172,9 +157,7 @@ class SignerWithProvider {
      * for execution
      */
     async mergeCoin(transaction, requestType = 'WaitForLocalExecution') {
-        const signerAddress = await this.getAddress();
-        const txBytes = await this.serializer.newMergeCoin(signerAddress, transaction);
-        return await this.signAndExecuteTransaction(txBytes, requestType);
+        return this.signAndExecuteTransaction({ kind: 'mergeCoin', data: transaction }, requestType);
     }
     /**
      *
@@ -182,18 +165,14 @@ class SignerWithProvider {
      * for execution
      */
     async splitCoin(transaction, requestType = 'WaitForLocalExecution') {
-        const signerAddress = await this.getAddress();
-        const txBytes = await this.serializer.newSplitCoin(signerAddress, transaction);
-        return await this.signAndExecuteTransaction(txBytes, requestType);
+        return this.signAndExecuteTransaction({ kind: 'splitCoin', data: transaction }, requestType);
     }
     /**
      * Serialize and sign a `MoveCall` transaction and submit to the Fullnode
      * for execution
      */
     async executeMoveCall(transaction, requestType = 'WaitForLocalExecution') {
-        const signerAddress = await this.getAddress();
-        const txBytes = await this.serializer.newMoveCall(signerAddress, transaction);
-        return await this.signAndExecuteTransaction(txBytes, requestType);
+        return this.signAndExecuteTransaction({ kind: 'moveCall', data: transaction }, requestType);
     }
     /**
      *
@@ -201,9 +180,7 @@ class SignerWithProvider {
      * for execution
      */
     async publish(transaction, requestType = 'WaitForLocalExecution') {
-        const signerAddress = await this.getAddress();
-        const txBytes = await this.serializer.newPublish(signerAddress, transaction);
-        return await this.signAndExecuteTransaction(txBytes, requestType);
+        return this.signAndExecuteTransaction({ kind: 'publish', data: transaction }, requestType);
     }
     /**
      * Returns the estimated gas cost for the transaction

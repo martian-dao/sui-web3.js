@@ -1,20 +1,21 @@
-import { SignatureScheme } from '../cryptography/publickey';
+import { PublicKey, SignatureScheme } from '../cryptography/publickey';
 import { HttpHeaders } from '../rpc/client';
-import { CertifiedTransaction, CoinDenominationInfoResponse, TransactionDigest, GetTxnDigestsResponse, GatewayTxSeqNumber, SuiObjectInfo, GetObjectDataResponse, SuiObjectRef, SuiMoveFunctionArgTypes, SuiMoveNormalizedFunction, SuiMoveNormalizedStruct, SuiMoveNormalizedModule, SuiMoveNormalizedModules, SuiEventFilter, SuiEventEnvelope, SubscriptionId, ExecuteTransactionRequestType, SuiExecuteTransactionResponse, SuiAddress, ObjectId, TransactionQuery, PaginatedTransactionDigests, EventQuery, PaginatedEvents, EventId, RpcApiVersion, FaucetResponse, Order, TransactionEffects } from '../types';
+import { Base64DataBuffer } from '../serialization/base64';
+import { CertifiedTransaction, TransactionDigest, GetTxnDigestsResponse, GatewayTxSeqNumber, SuiObjectInfo, GetObjectDataResponse, SuiObjectRef, SuiMoveFunctionArgTypes, SuiMoveNormalizedFunction, SuiMoveNormalizedStruct, SuiMoveNormalizedModule, SuiMoveNormalizedModules, SuiEventFilter, SuiEventEnvelope, SubscriptionId, ExecuteTransactionRequestType, SuiExecuteTransactionResponse, SuiAddress, ObjectId, TransactionQuery, PaginatedTransactionDigests, EventQuery, PaginatedEvents, EventId, RpcApiVersion, FaucetResponse, Order, TransactionEffects, CoinMetadata } from '../types';
 import { Provider } from './provider';
 export declare class VoidProvider extends Provider {
     getRpcApiVersion(): Promise<RpcApiVersion | undefined>;
+    getCoinMetadata(_coinType: string): Promise<CoinMetadata>;
     requestSuiFromFaucet(_recipient: SuiAddress, _httpHeaders?: HttpHeaders): Promise<FaucetResponse>;
     getObjectsOwnedByAddress(_address: string): Promise<SuiObjectInfo[]>;
     getGasObjectsOwnedByAddress(_address: string): Promise<SuiObjectInfo[]>;
-    getCoinDenominationInfo(_coin_type: string): CoinDenominationInfoResponse;
     getCoinBalancesOwnedByAddress(_address: string, _typeArg?: string): Promise<GetObjectDataResponse[]>;
     selectCoinsWithBalanceGreaterThanOrEqual(_address: string, _amount: bigint, _typeArg: string, _exclude?: ObjectId[]): Promise<GetObjectDataResponse[]>;
     selectCoinSetWithCombinedBalanceGreaterThanOrEqual(_address: string, _amount: bigint, _typeArg: string, _exclude: ObjectId[]): Promise<GetObjectDataResponse[]>;
     getObject(_objectId: string): Promise<GetObjectDataResponse>;
     getObjectRef(_objectId: string): Promise<SuiObjectRef | undefined>;
     getTransaction(_digest: TransactionDigest): Promise<CertifiedTransaction>;
-    executeTransaction(_txnBytes: string, _signatureScheme: SignatureScheme, _signature: string, _pubkey: string, _requestType: ExecuteTransactionRequestType): Promise<SuiExecuteTransactionResponse>;
+    executeTransaction(_txnBytes: Base64DataBuffer, _signatureScheme: SignatureScheme, _signature: Base64DataBuffer, _pubkey: PublicKey, _requestType: ExecuteTransactionRequestType): Promise<SuiExecuteTransactionResponse>;
     dryRunTransaction(_txBytes: string): Promise<TransactionEffects>;
     getTotalTransactionNumber(): Promise<number>;
     getTransactionDigestsInRange(_start: GatewayTxSeqNumber, _end: GatewayTxSeqNumber): Promise<GetTxnDigestsResponse>;

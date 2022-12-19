@@ -1,0 +1,1 @@
+{"version":3,"file":"base58.d.ts","sourceRoot":"","sources":["../../src/serialization/base58.ts"],"names":[],"mappings":"AAKA,qBAAa,gBAAgB;IAC3B,OAAO,CAAC,IAAI,CAAa;gBAEb,IAAI,EAAE,UAAU,GAAG,MAAM;IAQrC,OAAO,IAAI,UAAU;IAIrB,SAAS,IAAI,MAAM;IAInB,QAAQ,IAAI,MAAM;CAGnB"}

@@ -51,13 +51,13 @@ async function setupAccount() {
         return;
     try {
         alice = await apis.createWallet();
-        aliceAccount = await wallet_client_1.WalletClient.getAccountFromMetaData(alice.code);
+        aliceAccount = await wallet_client_1.WalletClient.fromDerivePath(alice.code);
         await apis.airdrop(aliceAccount.getPublicKey().toSuiAddress());
     }
     catch (err) {
         const mnemonic = "arena nothing skate then sport huge fence era cheese client powder tackle";
         alice = await apis.importWallet(mnemonic);
-        aliceAccount = await wallet_client_1.WalletClient.getAccountFromMetaData(mnemonic);
+        aliceAccount = await wallet_client_1.WalletClient.fromDerivePath(mnemonic);
     }
 }
 // to deal with faucet rate limit

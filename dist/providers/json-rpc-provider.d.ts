@@ -1,9 +1,10 @@
 import { Provider } from './provider';
 import { HttpHeaders, JsonRpcClient } from '../rpc/client';
-import { ExecuteTransactionRequestType, CoinDenominationInfoResponse, GatewayTxSeqNumber, GetObjectDataResponse, GetTxnDigestsResponse, ObjectId, PaginatedTransactionDigests, SubscriptionId, SuiAddress, SuiEventEnvelope, SuiEventFilter, SuiExecuteTransactionResponse, SuiMoveFunctionArgTypes, SuiMoveNormalizedFunction, SuiMoveNormalizedModule, SuiMoveNormalizedModules, SuiMoveNormalizedStruct, SuiObjectInfo, SuiObjectRef, SuiTransactionResponse, TransactionDigest, TransactionQuery, RpcApiVersion, EventQuery, EventId, PaginatedEvents, FaucetResponse, Order, TransactionEffects } from '../types';
-import { SignatureScheme } from '../cryptography/publickey';
+import { ExecuteTransactionRequestType, GatewayTxSeqNumber, GetObjectDataResponse, GetTxnDigestsResponse, ObjectId, PaginatedTransactionDigests, SubscriptionId, SuiAddress, SuiEventEnvelope, SuiEventFilter, SuiExecuteTransactionResponse, SuiMoveFunctionArgTypes, SuiMoveNormalizedFunction, SuiMoveNormalizedModule, SuiMoveNormalizedModules, SuiMoveNormalizedStruct, SuiObjectInfo, SuiObjectRef, SuiTransactionResponse, TransactionDigest, TransactionQuery, RpcApiVersion, EventQuery, EventId, PaginatedEvents, FaucetResponse, Order, TransactionEffects, CoinMetadata, SuiTransactionAuthSignersResponse } from '../types';
+import { PublicKey, SignatureScheme } from '../cryptography/publickey';
 import { WebsocketClient, WebsocketClientOptions } from '../rpc/websocket-client';
 import { ApiEndpoints, Network } from '../utils/api-endpoints';
+import { Base64DataBuffer } from '../serialization/base64';
 /**
  * Configuration options for the JsonRpcProvider. If the value of a field is not provided,
  * value in `DEFAULT_OPTIONS` for that field will be used
@@ -51,30 +52,31 @@ export declare class JsonRpcProvider extends Provider {
      */
     constructor(endpoint?: string | Network, options?: RpcProviderOptions);
     getRpcApiVersion(): Promise<RpcApiVersion | undefined>;
+    getCoinMetadata(coinType: string): Promise<CoinMetadata>;
     requestSuiFromFaucet(recipient: SuiAddress, httpHeaders?: HttpHeaders): Promise<FaucetResponse>;
     getMoveFunctionArgTypes(packageId: string, moduleName: string, functionName: string): Promise<SuiMoveFunctionArgTypes>;
     getNormalizedMoveModulesByPackage(packageId: string): Promise<SuiMoveNormalizedModules>;
     getNormalizedMoveModule(packageId: string, moduleName: string): Promise<SuiMoveNormalizedModule>;
     getNormalizedMoveFunction(packageId: string, moduleName: string, functionName: string): Promise<SuiMoveNormalizedFunction>;
     getNormalizedMoveStruct(packageId: string, moduleName: string, structName: string): Promise<SuiMoveNormalizedStruct>;
-    getObjectsOwnedByAddress(address: string): Promise<SuiObjectInfo[]>;
-    getGasObjectsOwnedByAddress(address: string): Promise<SuiObjectInfo[]>;
-    getCoinDenominationInfo(coinType: string): CoinDenominationInfoResponse;
-    getCoinBalancesOwnedByAddress(address: string, typeArg?: string): Promise<GetObjectDataResponse[]>;
-    selectCoinsWithBalanceGreaterThanOrEqual(address: string, amount: bigint, typeArg?: string, exclude?: ObjectId[]): Promise<GetObjectDataResponse[]>;
-    selectCoinSetWithCombinedBalanceGreaterThanOrEqual(address: string, amount: bigint, typeArg?: string, exclude?: ObjectId[]): Promise<GetObjectDataResponse[]>;
-    getObjectsOwnedByObject(objectId: string): Promise<SuiObjectInfo[]>;
-    getObject(objectId: string): Promise<GetObjectDataResponse>;
-    getObjectRef(objectId: string): Promise<SuiObjectRef | undefined>;
-    getObjectBatch(objectIds: string[]): Promise<GetObjectDataResponse[]>;
+    getObjectsOwnedByAddress(address: SuiAddress): Promise<SuiObjectInfo[]>;
+    getGasObjectsOwnedByAddress(address: SuiAddress): Promise<SuiObjectInfo[]>;
+    getCoinBalancesOwnedByAddress(address: SuiAddress, typeArg?: string): Promise<GetObjectDataResponse[]>;
+    selectCoinsWithBalanceGreaterThanOrEqual(address: SuiAddress, amount: bigint, typeArg?: string, exclude?: ObjectId[]): Promise<GetObjectDataResponse[]>;
+    selectCoinSetWithCombinedBalanceGreaterThanOrEqual(address: SuiAddress, amount: bigint, typeArg?: string, exclude?: ObjectId[]): Promise<GetObjectDataResponse[]>;
+    getObjectsOwnedByObject(objectId: ObjectId): Promise<SuiObjectInfo[]>;
+    getObject(objectId: ObjectId): Promise<GetObjectDataResponse>;
+    getObjectRef(objectId: ObjectId): Promise<SuiObjectRef | undefined>;
+    getObjectBatch(objectIds: ObjectId[]): Promise<GetObjectDataResponse[]>;
     getTransactions(query: TransactionQuery, cursor?: TransactionDigest | null, limit?: number | null, order?: Order): Promise<PaginatedTransactionDigests>;
-    getTransactionsForObject(objectID: string, descendingOrder?: boolean): Promise<GetTxnDigestsResponse>;
-    getTransactionsForAddress(addressID: string, descendingOrder?: boolean): Promise<GetTxnDigestsResponse>;
+    getTransactionsForObject(objectID: ObjectId, descendingOrder?: boolean): Promise<GetTxnDigestsResponse>;
+    getTransactionsForAddress(addressID: SuiAddress, descendingOrder?: boolean): Promise<GetTxnDigestsResponse>;
     getTransactionWithEffects(digest: TransactionDigest): Promise<SuiTransactionResponse>;
     getTransactionWithEffectsBatch(digests: TransactionDigest[]): Promise<SuiTransactionResponse[]>;
-    executeTransaction(txnBytes: string, signatureScheme: SignatureScheme, signature: string, pubkey: string, requestType?: ExecuteTransactionRequestType): Promise<SuiExecuteTransactionResponse>;
+    executeTransaction(txnBytes: Base64DataBuffer, signatureScheme: SignatureScheme, signature: Base64DataBuffer, pubkey: PublicKey, requestType?: ExecuteTransactionRequestType): Promise<SuiExecuteTransactionResponse>;
     getTotalTransactionNumber(): Promise<number>;
     getTransactionDigestsInRange(start: GatewayTxSeqNumber, end: GatewayTxSeqNumber): Promise<GetTxnDigestsResponse>;
+    getTransactionAuthSigners(digest: TransactionDigest): Promise<SuiTransactionAuthSignersResponse>;
     getEvents(query: EventQuery, cursor: EventId | null, limit: number | null, order?: Order): Promise<PaginatedEvents>;
     subscribeEvent(filter: SuiEventFilter, onMessage: (event: SuiEventEnvelope) => void): Promise<SubscriptionId>;
     unsubscribeEvent(id: SubscriptionId): Promise<boolean>;

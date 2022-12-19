@@ -2,7 +2,7 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.bcs = void 0;
+exports.bcs = exports.deserializeTransactionBytesToTransactionData = exports.TRANSACTION_DATA_TYPE_TAG = void 0;
 const bcs_1 = require("@mysten/bcs");
 const bcs = new bcs_1.BCS((0, bcs_1.getSuiMoveConfig)());
 exports.bcs = bcs;
@@ -30,8 +30,7 @@ bcs.registerStructType('TransferObjectTx', {
     recipient: 'address',
     object_ref: 'SuiObjectRef',
 });
-bcs
-    .registerStructType('PayTx', {
+bcs.registerStructType('PayTx', {
     coins: 'vector<SuiObjectRef>',
     recipients: 'vector<address>',
     amounts: 'vector<u64>',
@@ -90,8 +89,7 @@ bcs
     name: 'string',
     typeParams: 'vector<TypeTag>',
 });
-bcs
-    .registerStructType('MoveCallTx', {
+bcs.registerStructType('MoveCallTx', {
     package: 'SuiObjectRef',
     module: 'string',
     function: 'string',
@@ -107,8 +105,7 @@ bcs.registerEnumType('Transaction', {
     PaySui: 'PaySuiTx',
     PayAllSui: 'PayAllSuiTx',
 });
-bcs
-    .registerEnumType('TransactionKind', {
+bcs.registerEnumType('TransactionKind', {
     Single: 'Transaction',
     Batch: 'vector<Transaction>',
 });
@@ -118,5 +115,22 @@ bcs.registerStructType('TransactionData', {
     gasPayment: 'SuiObjectRef',
     gasPrice: 'u64',
     gasBudget: 'u64',
+});
+exports.TRANSACTION_DATA_TYPE_TAG = Array.from('TransactionData::').map((e) => e.charCodeAt(0));
+function deserializeTransactionBytesToTransactionData(useIntentSigning, bytes) {
+    if (useIntentSigning) {
+        return bcs.de('TransactionData', bytes.getData());
+    }
+    else {
+        return bcs.de('TransactionData', bytes.getData().slice(exports.TRANSACTION_DATA_TYPE_TAG.length));
+    }
+}
+exports.deserializeTransactionBytesToTransactionData = deserializeTransactionBytesToTransactionData;
+/**
+ * Signed transaction data needed to generate transaction digest.
+ */
+bcs.registerStructType('SenderSignedData', {
+    data: 'TransactionData',
+    txSignature: 'vector<u8>',
 });
 //# sourceMappingURL=sui-bcs.js.map

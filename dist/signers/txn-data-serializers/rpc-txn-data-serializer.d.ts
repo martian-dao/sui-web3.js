@@ -1,6 +1,5 @@
 import { Base64DataBuffer } from '../../serialization/base64';
-import { SuiAddress } from '../../types';
-import { MoveCallTransaction, MergeCoinTransaction, SplitCoinTransaction, TransferObjectTransaction, TransferSuiTransaction, PayTransaction, PaySuiTransaction, PayAllSuiTransaction, PublishTransaction, TxnDataSerializer } from './txn-data-serializer';
+import { TxnDataSerializer, UnserializedSignableTransaction } from './txn-data-serializer';
 /**
  * This is a temporary implementation of the `TxnDataSerializer` class
  * that uses the Sui Fullnode RPC API to serialize a transaction into BCS bytes. We will
@@ -26,14 +25,6 @@ export declare class RpcTxnDataSerializer implements TxnDataSerializer {
      * understand that the data may not match the TypeSrcript definitions.
      */
     constructor(endpoint: string, skipDataValidation?: boolean);
-    newTransferObject(signerAddress: SuiAddress, t: TransferObjectTransaction): Promise<Base64DataBuffer>;
-    newTransferSui(signerAddress: SuiAddress, t: TransferSuiTransaction): Promise<Base64DataBuffer>;
-    newPay(signerAddress: SuiAddress, t: PayTransaction): Promise<Base64DataBuffer>;
-    newPaySui(signerAddress: SuiAddress, t: PaySuiTransaction): Promise<Base64DataBuffer>;
-    newPayAllSui(signerAddress: SuiAddress, t: PayAllSuiTransaction): Promise<Base64DataBuffer>;
-    newMoveCall(signerAddress: SuiAddress, t: MoveCallTransaction): Promise<Base64DataBuffer>;
-    newMergeCoin(signerAddress: SuiAddress, t: MergeCoinTransaction): Promise<Base64DataBuffer>;
-    newSplitCoin(signerAddress: SuiAddress, t: SplitCoinTransaction): Promise<Base64DataBuffer>;
-    newPublish(signerAddress: SuiAddress, t: PublishTransaction): Promise<Base64DataBuffer>;
+    serializeToBytes(signerAddress: string, unserializedTxn: UnserializedSignableTransaction): Promise<Base64DataBuffer>;
 }
 //# sourceMappingURL=rpc-txn-data-serializer.d.ts.map

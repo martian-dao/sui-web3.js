@@ -25,6 +25,7 @@ export declare abstract class SignerWithProvider implements Signer {
      * on Fullnode
      */
     signAndExecuteTransaction(transaction: Base64DataBuffer | SignableTransaction, requestType?: ExecuteTransactionRequestType): Promise<SuiExecuteTransactionResponse>;
+    getTransactionDigest(tx: Base64DataBuffer | SignableTransaction): Promise<string>;
     /**
      * Dry run a transaction and return the result.
      * @param tx the transaction as SignableTransaction or string (in base64) that will dry run

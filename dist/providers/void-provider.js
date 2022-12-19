@@ -9,6 +9,9 @@ class VoidProvider extends provider_1.Provider {
     async getRpcApiVersion() {
         throw this.newError('getRpcApiVersion');
     }
+    getCoinMetadata(_coinType) {
+        throw new Error('getCoinMetadata');
+    }
     // Faucet
     async requestSuiFromFaucet(_recipient, _httpHeaders) {
         throw this.newError('requestSuiFromFaucet');
@@ -19,9 +22,6 @@ class VoidProvider extends provider_1.Provider {
     }
     async getGasObjectsOwnedByAddress(_address) {
         throw this.newError('getGasObjectsOwnedByAddress');
-    }
-    getCoinDenominationInfo(_coin_type) {
-        throw this.newError('getCoinDenominationInfo');
     }
     async getCoinBalancesOwnedByAddress(_address, _typeArg) {
         throw this.newError('getCoinBalancesOwnedByAddress');

@@ -1,6 +1,7 @@
-import { SignatureScheme } from '../cryptography/publickey';
+import { PublicKey, SignatureScheme } from '../cryptography/publickey';
 import { GetObjectDataResponse, SuiObjectInfo, SuiObjectRef, ExecuteTransactionRequestType, SuiExecuteTransactionResponse } from '../types';
 import { JsonRpcProvider } from './json-rpc-provider';
+import { Base64DataBuffer } from '../serialization/base64';
 export declare class JsonRpcProviderWithCache extends JsonRpcProvider {
     /**
      * A list of object references which are being tracked.
@@ -14,7 +15,7 @@ export declare class JsonRpcProviderWithCache extends JsonRpcProvider {
     getObject(objectId: string): Promise<GetObjectDataResponse>;
     getObjectRef(objectId: string, skipCache?: boolean): Promise<SuiObjectRef | undefined>;
     getObjectBatch(objectIds: string[]): Promise<GetObjectDataResponse[]>;
-    executeTransaction(txnBytes: string, signatureScheme: SignatureScheme, signature: string, pubkey: string, requestType?: ExecuteTransactionRequestType): Promise<SuiExecuteTransactionResponse>;
+    executeTransaction(txnBytes: Base64DataBuffer, signatureScheme: SignatureScheme, signature: Base64DataBuffer, pubkey: PublicKey, requestType?: ExecuteTransactionRequestType): Promise<SuiExecuteTransactionResponse>;
     private updateObjectRefCache;
     private updateObjectRefCacheFromTransactionEffects;
 }
