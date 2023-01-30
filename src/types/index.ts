@@ -9,3 +9,7 @@ export * from './framework';
 export * from './sui-bcs';
 export * from './version';
 export * from './faucet';
+export * from './normalized';
+export * from './validator';
+export * from './coin';
+export { GasCostSummary, CheckpointSummary, CheckpointContents, CheckpointDigest, CheckPointContentsDigest } from './checkpoints';

@@ -4,6 +4,7 @@
 import { PublicKey, SignatureScheme } from '../cryptography/publickey';
 import { HttpHeaders } from '../rpc/client';
 import { Base64DataBuffer } from '../serialization/base64';
+import { UnserializedSignableTransaction } from '../signers/txn-data-serializers/txn-data-serializer';
 import {
   CertifiedTransaction,
   TransactionDigest,
@@ -34,8 +35,19 @@ import {
   Order,
   TransactionEffects,
   CoinMetadata,
+  DevInspectResults,
+  PaginatedCoins,
+  CoinBalance,
+  CoinSupply,
+  CheckpointSummary,
+  CheckpointContents,
+  CheckpointDigest,
+  CheckPointContentsDigest,
+  CommitteeInfo,
 } from '../types';
 import { Provider } from './provider';
+
+import { DynamicFieldPage } from '../types/dynamic_fields';
 
 export class VoidProvider extends Provider {
   // API Version
@@ -43,8 +55,9 @@ export class VoidProvider extends Provider {
     throw this.newError('getRpcApiVersion');
   }
 
-  getCoinMetadata(_coinType: string): Promise<CoinMetadata> {
-    throw new Error('getCoinMetadata');
+  // Governance
+  async getReferenceGasPrice(): Promise<number> {
+    throw this.newError('getReferenceGasPrice');
   }
 
   // Faucet
@@ -53,6 +66,52 @@ export class VoidProvider extends Provider {
     _httpHeaders?: HttpHeaders
   ): Promise<FaucetResponse> {
     throw this.newError('requestSuiFromFaucet');
+  }
+
+  // RPC Endpoint
+  call(_endpoint: string, _params: any[]): Promise<any> {
+    throw this.newError('call');
+  }
+
+  // Coins
+  async getCoins(
+    _owner: SuiAddress,
+    _coinType: String | null,
+    _cursor: ObjectId | null,
+    _limit: number | null
+  ) : Promise<PaginatedCoins> {
+    throw this.newError('getCoins');
+  }
+
+  async getAllCoins(
+    _owner: SuiAddress,
+    _cursor: ObjectId | null,
+    _limit: number | null
+  ) : Promise<PaginatedCoins> {
+    throw this.newError('getAllCoins');
+  }
+
+  async getBalance(
+    _owner: string, 
+    _coinType: String | null
+    ): Promise<CoinBalance> {
+      throw this.newError('getBalance');
+  }
+
+  async getAllBalances(
+    _owner: string, 
+    ): Promise<CoinBalance[]> {
+      throw this.newError('getAllBalances');
+  }
+
+  async getCoinMetadata(_coinType: string): Promise<CoinMetadata> {
+    throw new Error('getCoinMetadata');
+  }
+
+  async getTotalSupply(
+    _coinType: string
+  ) : Promise<CoinSupply> {
+    throw new Error('getTotalSupply');
   }
 
   // Objects
@@ -66,6 +125,9 @@ export class VoidProvider extends Provider {
     throw this.newError('getGasObjectsOwnedByAddress');
   }
 
+  /**
+   * @deprecated The method should not be used
+   */
   async getCoinBalancesOwnedByAddress(
     _address: string,
     _typeArg?: string
@@ -116,8 +178,32 @@ export class VoidProvider extends Provider {
     throw this.newError('executeTransaction with request Type');
   }
 
+  devInspectTransaction(
+    _sender: SuiAddress,
+    _txn: UnserializedSignableTransaction | string | Base64DataBuffer,
+    _gasPrice: number | null = null,
+    _epoch: number | null = null
+  ): Promise<DevInspectResults> {
+    throw this.newError('devInspectTransaction');
+  }
+
   dryRunTransaction(_txBytes: string): Promise<TransactionEffects> {
     throw this.newError('dryRunTransaction');
+  }
+
+  getDynamicFields(
+    _parent_object_id: ObjectId,
+    _cursor: ObjectId | null = null,
+    _limit: number | null = null
+  ): Promise<DynamicFieldPage> {
+    throw this.newError('getDynamicFields');
+  }
+
+  getDynamicFieldObject(
+    _parent_object_id: ObjectId,
+    _name: string
+  ): Promise<GetObjectDataResponse> {
+    throw this.newError('getDynamicFieldObject');
   }
 
   async getTotalTransactionNumber(): Promise<number> {
@@ -203,5 +289,38 @@ export class VoidProvider extends Provider {
     _order: Order
   ): Promise<PaginatedEvents> {
     throw this.newError('getEvents');
+  }
+
+  // Checkpoints
+  async getLatestCheckpointSequenceNumber(): Promise<number> {
+    throw this.newError('getLatestCheckpointSequenceNumber');
+  }
+
+  async getCheckpointSummary(
+    _sequenceNumber: number,
+  ): Promise<CheckpointSummary> {
+    throw this.newError('getCheckpointSummary');
+  }
+
+  async getCheckpointSummaryByDigest(
+    _digest: CheckpointDigest,
+  ): Promise<CheckpointSummary> {
+    throw this.newError('getCheckpointSummaryByDigest');
+  }
+
+  async getCheckpointContents(
+    _sequenceNumber: number,
+  ): Promise<CheckpointContents> {
+    throw this.newError('getCheckpointContents');
+  }
+
+  async getCheckpointContentsByDigest(
+    _digest: CheckPointContentsDigest,
+  ): Promise<CheckpointContents> {
+    throw this.newError('getCheckpointContentsByDigest');
+  }
+
+  async getCommitteeInfo(_epoch?: number): Promise<CommitteeInfo> {
+    throw this.newError('getCommitteeInfo');
   }
 }

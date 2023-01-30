@@ -1,18 +1,18 @@
 import * as bip39 from '@scure/bip39';
 import * as english from '@scure/bip39/wordlists/english';
 import { Ed25519Keypair } from './cryptography/ed25519-keypair';
-import { GetObjectDataResponse, SuiAddress, TransactionEffects } from './types';
+import {
+  GetObjectDataResponse,
+  SuiAddress,
+  SuiObject,
+  TransactionEffects,
+} from './types';
 import { JsonRpcProvider } from './providers/json-rpc-provider';
 import { Coin, SUI_TYPE_ARG } from './types/framework';
 import { RpcTxnDataSerializer } from './signers/txn-data-serializers/rpc-txn-data-serializer';
-import {
-  getMoveObject,
-  getObjectId,
-  ObjectId,
-  SuiObjectInfo,
-} from './types/objects';
+import { getMoveObject, getObjectId, ObjectId, SuiObjectInfo } from './types';
 import { RawSigner } from './signers/raw-signer';
-import { ExampleNFT } from './nft_client';
+import { NftClient } from './nft_client';
 import { Network, NETWORK_TO_API } from './utils/api-endpoints';
 import {
   PaySuiTransaction,
@@ -44,6 +44,7 @@ export interface Wallet {
 export class WalletClient {
   provider: JsonRpcProvider;
   serializer: RpcTxnDataSerializer;
+  nftClient: NftClient;
 
   constructor(
     nodeUrl: string = endpoints.fullNode,
@@ -56,6 +57,7 @@ export class WalletClient {
       faucetURL: faucetUrl,
     });
     this.serializer = new RpcTxnDataSerializer(nodeUrl);
+    this.nftClient = new NftClient(this.provider);
   }
 
   /**
@@ -67,7 +69,10 @@ export class WalletClient {
    */
   //Use deriveKeypair() in ed25519-keypair.ts
   //Giving error for different derivation path other than standard 0
-  static fromDerivePath(mnemonics: string, derivationPath?: string): Ed25519Keypair {
+  static fromDerivePath(
+    mnemonics: string,
+    derivationPath?: string
+  ): Ed25519Keypair {
     // const normalizeMnemonics = mnemonics
     //     .trim()
     //     .split(/\s+/)
@@ -109,18 +114,20 @@ export class WalletClient {
       const derivationPath = `m/44'/${COIN_TYPE}'/${i}'/0'/0'`;
       const keypair = WalletClient.fromDerivePath(code, derivationPath);
       const address = keypair.getPublicKey().toSuiAddress();
-      const publicKey = Buffer.from(keypair.getPublicKey().toBytes()).toString('hex');
+      const publicKey = Buffer.from(keypair.getPublicKey().toBytes()).toString(
+        'hex'
+      );
       // check if this account exists on Sui or not
       const response = await this.provider.getObjectsOwnedByAddress(address);
       if (Object.keys(response).length !== 0 || i === 0) {
-      accountMetaData.push({
-        derivationPath,
-        address: address.startsWith('0x') ? address : '0x' + address,
-        publicKey: publicKey.startsWith('0x') ? publicKey : '0x' + publicKey,
-      });
-      // NOTE: breaking because multiple address support is not available currently
+        accountMetaData.push({
+          derivationPath,
+          address: address.startsWith('0x') ? address : '0x' + address,
+          publicKey: publicKey.startsWith('0x') ? publicKey : '0x' + publicKey,
+        });
+        // NOTE: breaking because multiple address support is not available currently
       } else {
-      break;
+        break;
       }
       /* eslint-enable no-await-in-loop */
     }
@@ -326,14 +333,14 @@ export class WalletClient {
         if (transactionData.effects.status.status === 'success') {
           const events = transactionData.effects.events;
           const coinBalanceReceiveEvents = events?.filter(
-            (event:any) =>
+            (event: any) =>
               event.coinBalanceChange &&
               event.coinBalanceChange.owner?.AddressOwner === address &&
               event.coinBalanceChange.changeType !== 'Gas' &&
               event.coinBalanceChange.amount >= 0
           );
           const coinBalanceSendEvents = events?.filter(
-            (event:any) =>
+            (event: any) =>
               event.coinBalanceChange &&
               event.coinBalanceChange.sender === address &&
               event.coinBalanceChange.changeType !== 'Gas' &&
@@ -341,9 +348,11 @@ export class WalletClient {
           );
 
           const transferEvents: any = events?.filter(
-            (event:any) => event.transferObject
+            (event: any) => event.transferObject
           );
-          const moveEvents: any = events?.filter((event:any) => event.moveEvent);
+          const moveEvents: any = events?.filter(
+            (event: any) => event.moveEvent
+          );
 
           let totalCoinBalanceChange: number = 0;
           let changeType: any = {
@@ -354,7 +363,7 @@ export class WalletClient {
             changeTextSuffix: '',
           };
 
-          coinBalanceReceiveEvents?.forEach((event:any) => {
+          coinBalanceReceiveEvents?.forEach((event: any) => {
             totalCoinBalanceChange += event.coinBalanceChange.amount;
             if (!changeType.type) {
               if (event.coinBalanceChange.sender === AIRDROP_SENDER) {
@@ -381,7 +390,7 @@ export class WalletClient {
             }
           });
 
-          coinBalanceSendEvents?.forEach((event:any) => {
+          coinBalanceSendEvents?.forEach((event: any) => {
             totalCoinBalanceChange += event.coinBalanceChange.amount;
             if (!changeType.type) {
               changeType = {
@@ -472,21 +481,63 @@ export class WalletClient {
 
   async getNfts(address: SuiAddress) {
     let objects = await this.provider.getObjectsOwnedByAddress(address);
+    console.log(objects);
     var nfts: GetObjectDataResponse[] = [];
+    const originByteNftData = [];
     await Promise.all(
       objects.map(async (obj) => {
         let objData = await this.provider.getObject(obj.objectId);
-        let moveObj = getMoveObject(objData);
+
+        if (!objData) return;
+
+        const objectDetails = objData.details;
+
         if (
-          !Coin.isCoin(objData) &&
-          moveObj!.fields.url
+          typeof objectDetails !== 'string' &&
+          'data' in objectDetails &&
+          'fields' in objectDetails.data
         ) {
+          if (objectDetails.data.fields.bag) {
+            // originbyte nft standard
+            originByteNftData.push(objData);
+            return;
+          }
+        }
+
+        let moveObj = getMoveObject(objData);
+        if (!Coin.isCoin(objData) && moveObj!.fields.url) {
           nfts.push(objData);
         } else if (moveObj!.fields.metadata) {
           nfts.push(objData);
         }
       })
     );
+
+    // fetch originbyte nfts
+    const originByteNfts = await this.nftClient.getNftsById({
+      objects: originByteNftData,
+    });
+
+    originByteNfts.map((data) => {
+      try {
+        let obj: any = originByteNftData.filter(
+          (val) => val.details.reference.objectId === data.nft.id
+        );
+
+        if (obj.length === 0) return;
+
+        obj = obj[0];
+
+        obj.details.data.fields = {
+          ...obj.details.data.fields,
+          ...data.fields,
+        };
+        nfts.push(obj);
+      } catch (err) {
+        console.log(err);
+      }
+    });
+
     return nfts;
   }
 
@@ -502,7 +553,7 @@ export class WalletClient {
       this.provider,
       this.serializer
     );
-    const mintedNft = ExampleNFT.mintExampleNFT(
+    const mintedNft = NftClient.mintExampleNFT(
       accountSigner,
       name,
       description,
@@ -522,12 +573,15 @@ export class WalletClient {
       this.provider,
       this.serializer
     );
-    const mintedNft = ExampleNFT.TransferNFT(accountSigner, nftId, recipientID);
+    const mintedNft = NftClient.TransferNFT(accountSigner, nftId, recipientID);
     return mintedNft;
   }
 
   static getAccountFromMetaData(mnemonic: string, metadata: AccountMetaData) {
-    const keypair: any = Ed25519Keypair.deriveKeypair(mnemonic, metadata.derivationPath);
+    const keypair: any = Ed25519Keypair.deriveKeypair(
+      mnemonic,
+      metadata.derivationPath
+    );
     return keypair;
   }
 }

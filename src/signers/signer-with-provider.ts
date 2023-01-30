@@ -11,10 +11,12 @@ import {
   ExecuteTransactionRequestType,
   FaucetResponse,
   generateTransactionDigest,
-  getTotalGasUsed,
+  getTotalGasUsedUpperBound,
   SuiAddress,
   SuiExecuteTransactionResponse,
   TransactionEffects,
+  DevInspectResults,
+  bcsForVersion,
 } from '../types';
 import { SignaturePubkeyPair, Signer } from './signer';
 import { RpcTxnDataSerializer } from './txn-data-serializers/rpc-txn-data-serializer';
@@ -30,9 +32,10 @@ import {
   TxnDataSerializer,
   PublishTransaction,
   SignableTransaction,
+  UnserializedSignableTransaction,
 } from './txn-data-serializers/txn-data-serializer';
 
-// See: sui/crates/sui-types/src/intent.rs 
+// See: sui/crates/sui-types/src/intent.rs
 // This is currently hardcoded with [IntentScope::TransactionData = 0, Version::V0 = 0, AppId::Sui = 0]
 const INTENT_BYTES = [0, 0, 0];
 ///////////////////////////////
@@ -102,20 +105,14 @@ export abstract class SignerWithProvider implements Signer {
         transaction instanceof Base64DataBuffer
           ? transaction
           : new Base64DataBuffer(transaction.data);
-      const version = await this.provider.getRpcApiVersion();
-      let dataToSign;
-      let txBytesToSubmit;
-      if (version?.major == 0 && version?.minor < 19) {
-        dataToSign = txBytes;
-        txBytesToSubmit = txBytes;
-      } else {
-        const intentMessage = new Uint8Array(INTENT_BYTES.length + txBytes.getLength());
-        intentMessage.set(INTENT_BYTES);
-        intentMessage.set(txBytes.getData(), INTENT_BYTES.length);
-        
-        dataToSign = new Base64DataBuffer(intentMessage);
-        txBytesToSubmit = txBytes;
-      }
+      const intentMessage = new Uint8Array(
+        INTENT_BYTES.length + txBytes.getLength()
+      );
+      intentMessage.set(INTENT_BYTES);
+      intentMessage.set(txBytes.getData(), INTENT_BYTES.length);
+
+      const dataToSign = new Base64DataBuffer(intentMessage);
+      const txBytesToSubmit = txBytes;
       const sig = await this.signData(dataToSign);
       return await this.provider.executeTransaction(
         txBytesToSubmit,
@@ -128,7 +125,8 @@ export abstract class SignerWithProvider implements Signer {
     return await this.signAndExecuteTransaction(
       await this.serializer.serializeToBytes(
         await this.getAddress(),
-        transaction
+        transaction,
+        'Commit'
       ),
       requestType
     );
@@ -144,31 +142,50 @@ export abstract class SignerWithProvider implements Signer {
     } else {
       txBytes = await this.serializer.serializeToBytes(
         await this.getAddress(),
-        tx
+        tx,
+        'DevInspect'
       );
     }
     const version = await this.provider.getRpcApiVersion();
-    const useIntentSigning = version != null && version.major >= 0 && version.minor > 18;
-    let dataToSign;
-    if (useIntentSigning) {
-      const intentMessage = new Uint8Array(INTENT_BYTES.length + txBytes.getLength());
-      intentMessage.set(INTENT_BYTES);
-      intentMessage.set(txBytes.getData(), INTENT_BYTES.length);
-      dataToSign = new Base64DataBuffer(intentMessage);
-    } else {
-      dataToSign = txBytes;
-    }
+    const intentMessage = new Uint8Array(
+      INTENT_BYTES.length + txBytes.getLength()
+    );
+    intentMessage.set(INTENT_BYTES);
+    intentMessage.set(txBytes.getData(), INTENT_BYTES.length);
+    const dataToSign = new Base64DataBuffer(intentMessage);
 
+    const bcs = bcsForVersion(version);
     const sig = await this.signData(dataToSign);
-    const data = deserializeTransactionBytesToTransactionData(useIntentSigning, txBytes);
+    const data = deserializeTransactionBytesToTransactionData(bcs, txBytes);
     return generateTransactionDigest(
       data,
       sig.signatureScheme,
       sig.signature,
       sig.pubKey,
-      (version?.major == 0 && version?.minor < 18) ? 'base64' : 'base58',
-      (version?.major == 0 && version?.minor < 18) ? false : true
+      bcs,
+      version?.major == 0 && version?.minor < 18 ? 'base64' : 'base58',
+      version?.major == 0 && version?.minor < 18 ? false : true
     );
+  }
+
+  /**
+   * Runs the transaction in dev-inpsect mode. Which allows for nearly any
+   * transaction (or Move call) with any arguments. Detailed results are
+   * provided, including both the transaction effects and any return values.
+   *
+   * @param tx the transaction as SignableTransaction or string (in base64) that will dry run
+   * @param gas_price optional. Default to use the network reference gas price stored
+   * in the Sui System State object
+   * @param epoch optional. Default to use the current epoch number stored
+   * in the Sui System State object
+   */
+  async devInspectTransaction(
+    tx: UnserializedSignableTransaction | string | Base64DataBuffer,
+    gasPrice: number | null = null,
+    epoch: number | null = null
+  ): Promise<DevInspectResults> {
+    const address = await this.getAddress();
+    return this.provider.devInspectTransaction(address, tx, gasPrice, epoch);
   }
 
   /**
@@ -192,7 +209,7 @@ export abstract class SignerWithProvider implements Signer {
           break;
         default:
           dryRunTxBytes = (
-            await this.serializer.serializeToBytes(address, tx)
+            await this.serializer.serializeToBytes(address, tx, 'Commit')
           ).toString();
           break;
       }
@@ -339,7 +356,7 @@ export abstract class SignerWithProvider implements Signer {
     ...args: Parameters<SignerWithProvider['dryRunTransaction']>
   ) {
     const txEffects = await this.dryRunTransaction(...args);
-    const gasEstimation = getTotalGasUsed(txEffects);
+    const gasEstimation = getTotalGasUsedUpperBound(txEffects);
     if (typeof gasEstimation === 'undefined') {
       throw new Error('Failed to estimate the gas cost from transaction');
     }
