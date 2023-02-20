@@ -1,7 +1,7 @@
 {
   "name": "@martianwallet/sui-web3.js",
   "description": "Web3 SDK For Sui",
-  "version": "0.0.18",
+  "version": "0.0.19",
   "license": "Apache-2.0",
   "files": [
     "dist",
@@ -92,10 +92,10 @@
     "bn.js": "^5.2.0",
     "buffer": "^6.0.3",
     "isomorphic-fetch": "^3.0.0",
-    "@noble/hashes": "^1.1.2",
+    "@noble/hashes": "1.1.2",
     "@noble/secp256k1": "^1.6.3",
-    "@scure/bip32": "^1.1.0",
-    "@scure/bip39": "^1.1.0",
+    "@scure/bip32": "1.1.0",
+    "@scure/bip39": "1.1.0",
     "@suchipi/femver": "^1.0.0",
     "bs58": "^5.0.0",
     "cross-fetch": "^3.1.5",
