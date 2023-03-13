@@ -275,7 +275,7 @@ export class WalletClient {
       symbol: Coin.getCoinSymbol(Coin.getCoinTypeArg(c)),
       name: Coin.getCoinSymbol(Coin.getCoinTypeArg(c)),
       balance: Number(Coin.getBalance(c)),
-      decimals: 9,
+      decimals: Coin.getCoinTypeArg(c) === '0x2::sui::SUI' ? 9 : 0,
       coinTypeArg: Coin.getCoinTypeArg(c),
     }));
     return coinIds;
