@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect, beforeAll } from 'vitest';
+import { getTransactionDigest, getTransactionKind } from '../../src';
 import { setup, TestToolbox } from './utils/setup';
 
 describe('Transaction Reading API', () => {
@@ -17,44 +18,51 @@ describe('Transaction Reading API', () => {
   });
 
   it('Get Transaction', async () => {
-    const resp = await toolbox.provider.getTransactions(
-      'All',
-      null,
-      1,
-      'Descending'
-    );
-    const digest = resp.data[0];
-    const txn = await toolbox.provider.getTransactionWithEffects(digest);
-    expect(txn.certificate.transactionDigest).toEqual(digest);
+    const resp = await toolbox.provider.queryTransactions({}, null, 1);
+    const digest = resp.data[0].digest;
+    const txn = await toolbox.provider.getTransactionResponse(digest);
+    expect(getTransactionDigest(txn)).toEqual(digest);
   });
 
   it('Get Transactions', async () => {
-    const resp = await toolbox.provider.getTransactionsForAddress(
+    const resp = await toolbox.provider.queryTransactionsForAddressDeprecated(
       toolbox.address(),
-      'Ascending'
+      false,
     );
     expect(resp.length).to.greaterThan(0);
 
-    const allTransactions = await toolbox.provider.getTransactions(
-      'All',
+    const allTransactions = await toolbox.provider.queryTransactions(
+      {},
       null,
       10,
-      'Ascending'
     );
     expect(allTransactions.data.length).to.greaterThan(0);
 
-    const resp2 = await toolbox.provider.getTransactions(
-      { ToAddress: toolbox.address() },
+    const resp2 = await toolbox.provider.queryTransactions(
+      { filter: { ToAddress: toolbox.address() } },
       null,
       null,
-      'Ascending'
     );
-    const resp3 = await toolbox.provider.getTransactions(
-      { FromAddress: toolbox.address() },
+    const resp3 = await toolbox.provider.queryTransactions(
+      { filter: { FromAddress: toolbox.address() } },
       null,
       null,
-      'Ascending'
     );
-    expect([...resp2.data, ...resp3.data]).toEqual(resp);
+    expect([...resp2.data, ...resp3.data].map((r) => r.digest)).toEqual(resp);
+  });
+
+  it('Genesis exists', async () => {
+    const allTransactions = await toolbox.provider.queryTransactions(
+      {},
+      null,
+      1,
+      'ascending',
+    );
+    const resp = await toolbox.provider.getTransactionResponse(
+      allTransactions.data[0].digest,
+      { showInput: true },
+    );
+    const txKind = getTransactionKind(resp)!;
+    expect(txKind.kind === 'Genesis').toBe(true);
   });
 });

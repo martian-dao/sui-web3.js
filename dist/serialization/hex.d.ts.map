@@ -1,1 +1,0 @@
-{"version":3,"file":"hex.d.ts","sourceRoot":"","sources":["../../src/serialization/hex.ts"],"names":[],"mappings":"AAKA,qBAAa,aAAa;IACxB,OAAO,CAAC,KAAK,CAAa;gBAEd,IAAI,EAAE,UAAU,GAAG,MAAM;IAQrC,OAAO,IAAI,UAAU;IAIrB,SAAS,IAAI,MAAM;IAInB,QAAQ,IAAI,MAAM;CAGnB"}

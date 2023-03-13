@@ -1,33 +1,25 @@
 import * as bip39 from '@scure/bip39';
 import * as english from '@scure/bip39/wordlists/english';
+import { Transaction } from './builder';
 import { Ed25519Keypair } from './cryptography/ed25519-keypair';
-import {
-  GetObjectDataResponse,
-  SuiAddress,
-  TransactionEffects,
-} from './types';
-import { JsonRpcProvider } from './providers/json-rpc-provider';
-import { Coin, SUI_TYPE_ARG } from './types/framework';
-import { RpcTxnDataSerializer } from './signers/txn-data-serializers/rpc-txn-data-serializer';
-import { getMoveObject, getObjectId, ObjectId } from './types/objects';
-import { RawSigner } from './signers/raw-signer';
 import { NftClient } from './nft_client';
-import { Network, NETWORK_TO_API } from './utils/api-endpoints';
-import {
-  PaySuiTransaction,
-  PayTransaction,
-  SignableTransaction,
-  UnserializedSignableTransaction,
-} from './signers/txn-data-serializers/txn-data-serializer';
+import { JsonRpcProvider } from './providers/json-rpc-provider';
+import { Connection } from './rpc/connection';
 import { DEFAULT_CLIENT_OPTIONS } from './rpc/websocket-client';
-import { Base64DataBuffer } from './serialization/base64';
+import { RawSigner } from './signers/raw-signer';
+import {
+  Coin,
+  DryRunTransactionResponse,
+  ObjectId,
+  SuiAddress,
+  SUI_TYPE_ARG,
+} from './types';
 
 const COIN_TYPE = 784;
 const MAX_ACCOUNTS = 20;
 const DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER = 1000;
-const endpoints = NETWORK_TO_API[Network.DEVNET];
 
-const AIRDROP_SENDER = '0xc4173a804406a365e69dfb297d4eaaf002546ebd';
+const dedupe = (arr: string[]) => Array.from(new Set(arr));
 
 export interface AccountMetaData {
   derivationPath: string; //"44'/784'/1'/0'/0'"
@@ -42,20 +34,19 @@ export interface Wallet {
 
 export class WalletClient {
   provider: JsonRpcProvider;
-  serializer: RpcTxnDataSerializer;
   nftClient: NftClient;
 
-  constructor(
-    nodeUrl: string = endpoints.fullNode,
-    faucetUrl: string = endpoints.faucet
-  ) {
-    this.provider = new JsonRpcProvider(nodeUrl, {
-      skipDataValidation: true,
-      socketOptions: DEFAULT_CLIENT_OPTIONS,
-      versionCacheTimoutInSeconds: 600,
-      faucetURL: faucetUrl,
-    });
-    this.serializer = new RpcTxnDataSerializer(nodeUrl);
+  constructor(nodeUrl: string, faucetUrl: string) {
+    this.provider = new JsonRpcProvider(
+      new Connection({
+        fullnode: nodeUrl,
+        faucet: faucetUrl,
+      }),
+      {
+        skipDataValidation: false,
+        socketOptions: DEFAULT_CLIENT_OPTIONS,
+      },
+    );
     this.nftClient = new NftClient(this.provider);
   }
 
@@ -70,7 +61,7 @@ export class WalletClient {
   //Giving error for different derivation path other than standard 0
   static fromDerivePath(
     mnemonics: string,
-    derivationPath?: string
+    derivationPath?: string,
   ): Ed25519Keypair {
     // const normalizeMnemonics = mnemonics
     //     .trim()
@@ -114,7 +105,7 @@ export class WalletClient {
       const keypair = WalletClient.fromDerivePath(code, derivationPath);
       const address = keypair.getPublicKey().toSuiAddress();
       const publicKey = Buffer.from(keypair.getPublicKey().toBytes()).toString(
-        'hex'
+        'hex',
       );
       // check if this account exists on Sui or not
       const response = await this.provider.getObjectsOwnedByAddress(address);
@@ -156,7 +147,7 @@ export class WalletClient {
    */
   async createNewAccount(
     code: string,
-    index: number
+    index: number,
   ): Promise<AccountMetaData> {
     if (index >= MAX_ACCOUNTS) {
       throw new Error('Max no. of accounts reached');
@@ -165,7 +156,7 @@ export class WalletClient {
     const keypair = WalletClient.fromDerivePath(code, derivationPath);
     const address = keypair.getPublicKey().toSuiAddress();
     const pubKey = Buffer.from(keypair.getPublicKey().toBytes()).toString(
-      'hex'
+      'hex',
     );
     return {
       derivationPath,
@@ -178,61 +169,28 @@ export class WalletClient {
     amount: number,
     suiAccount: Ed25519Keypair,
     receiverAddress: SuiAddress,
-    typeArg: string = SUI_TYPE_ARG
   ) {
     const keypair = suiAccount;
-    const senderAddress = keypair.getPublicKey().toSuiAddress();
-    if (typeArg === SUI_TYPE_ARG) {
-      const coinsNeeded =
-        await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
-          senderAddress,
-          BigInt(amount + DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER),
-          typeArg
-        );
-      const inputCoins: ObjectId[] = coinsNeeded.map((coin) =>
-        getObjectId(coin)
-      );
-      const recipients: SuiAddress[] = [receiverAddress];
-      const amounts: number[] = [amount];
-      const payTxn: PaySuiTransaction = {
-        inputCoins: inputCoins,
-        recipients: recipients,
-        amounts: amounts,
-        gasBudget: DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER,
-      };
-      const signer = new RawSigner(keypair, this.provider, this.serializer);
-      return await signer.paySui(payTxn);
-    } else {
-      const coinsNeeded =
-        await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
-          senderAddress,
-          BigInt(amount),
-          typeArg
-        );
-      const inputCoins: ObjectId[] = coinsNeeded.map((coin) =>
-        getObjectId(coin)
-      );
-      const gasObjId = await this.getGasObject(senderAddress, inputCoins);
-      const recipients: SuiAddress[] = [receiverAddress];
-      const amounts: number[] = [amount];
-      const payTxn: PayTransaction = {
-        inputCoins: inputCoins,
-        recipients: recipients,
-        amounts: amounts,
-        gasPayment: gasObjId,
-        gasBudget: DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER,
-      };
-      const signer = new RawSigner(keypair, this.provider, this.serializer);
-      return await signer.pay(payTxn);
-    }
+    const tx = new Transaction();
+    const coin = tx.splitCoin(tx.gas, tx.pure(amount));
+    tx.transferObjects([coin], tx.pure(receiverAddress));
+    const signer = new RawSigner(keypair, this.provider);
+    return await signer.signAndExecuteTransaction(tx);
   }
 
   async getBalance(address: string, typeArg: string = SUI_TYPE_ARG) {
-    let objects = await this.provider.getCoinBalancesOwnedByAddress(
-      address,
-      typeArg
-    );
-    return Coin.totalBalance(objects);
+    const objects = await this.provider.getBalance({
+      owner: address,
+      coinType: typeArg,
+    });
+    return objects.totalBalance;
+  }
+
+  async getAllBalances(address: string) {
+    const objects = await this.provider.getAllBalances({
+      owner: address,
+    });
+    return objects;
   }
 
   async airdrop(address: string) {
@@ -242,15 +200,15 @@ export class WalletClient {
   async getCoinsWithRequiredBalance(
     address: string,
     amount: number,
-    typeArg: string = SUI_TYPE_ARG
+    typeArg: string = SUI_TYPE_ARG,
   ) {
     const coinsNeeded =
       await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
         address,
         BigInt(amount),
-        typeArg
+        typeArg,
       );
-    const coins: ObjectId[] = coinsNeeded.map((coin) => getObjectId(coin));
+    const coins: ObjectId[] = coinsNeeded.map((coin) => coin.coinObjectId);
     return coins;
   }
 
@@ -259,236 +217,94 @@ export class WalletClient {
       address,
       BigInt(DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER),
       SUI_TYPE_ARG,
-      exclude
+      exclude,
     );
     if (gasObj.length === 0) {
       throw new Error('Not Enough Gas');
     }
-    const gasObjId: ObjectId = getObjectId(gasObj[0]);
+    const gasObjId: ObjectId = gasObj[0].coinObjectId;
     return gasObjId;
   }
 
   async getCustomCoins(address: string) {
-    const objects = await this.provider.getCoinBalancesOwnedByAddress(address);
-    const coinIds = objects.map((c) => ({
-      Id: Coin.getID(c),
-      symbol: Coin.getCoinSymbol(Coin.getCoinTypeArg(c)),
-      name: Coin.getCoinSymbol(Coin.getCoinTypeArg(c)),
-      balance: Number(Coin.getBalance(c)),
+    const objects = await this.provider.getAllCoins({
+      owner: address,
+    });
+    const coinIds = objects.data.map((c) => ({
+      Id: c.coinObjectId,
+      symbol: Coin.getCoinSymbol(c.coinType),
+      name: Coin.getCoinSymbol(c.coinType),
+      balance: Number(c.balance),
       decimals: 9,
-      coinTypeArg: Coin.getCoinTypeArg(c),
+      coinTypeArg: c.coinType,
     }));
     return coinIds;
   }
 
   /**
    * Dry run a transaction and return the result.
-   * @param address address of the account
-   * @param tx the transaction as SignableTransaction or string (in base64) that will dry run
+   * @param tx the transaction bytes in Uint8Array
    * @returns The transaction effects
    */
-  async dryRunTransaction(
-    address: string,
-    tx: SignableTransaction | string | Base64DataBuffer
-  ): Promise<TransactionEffects> {
-    let dryRunTxBytes: string;
-    if (typeof tx === 'string') {
-      dryRunTxBytes = tx;
-    } else if (tx instanceof Base64DataBuffer) {
-      dryRunTxBytes = tx.toString();
-    } else {
-      switch (tx.kind) {
-        case 'bytes':
-          dryRunTxBytes = new Base64DataBuffer(tx.data).toString();
-          break;
-        default:
-          dryRunTxBytes = (
-            await this.serializer.serializeToBytes(address, tx)
-          ).toString();
-          break;
-      }
-    }
-    return this.provider.dryRunTransaction(dryRunTxBytes);
+  async dryRunTransaction(tx: Uint8Array): Promise<DryRunTransactionResponse> {
+    return this.provider.dryRunTransaction(tx);
   }
 
   async simulateTransaction(
-    address: string,
-    tx: SignableTransaction | string | Base64DataBuffer
-  ): Promise<TransactionEffects> {
-    return await this.dryRunTransaction(address, tx);
+    tx: Uint8Array,
+  ): Promise<DryRunTransactionResponse> {
+    return await this.dryRunTransaction(tx);
   }
 
   async getTransactions(address: SuiAddress) {
-    const transactions = await this.provider.getTransactionsForAddress(address);
-    const uniqueTransactions = [...new Set(transactions)];
-
-    const finalTransacationsData: any[] = [];
-    await Promise.all(
-      uniqueTransactions.map(async (digest: string) => {
-        const transactionData = await this.provider.getTransactionWithEffects(
-          digest
-        );
-
-        if (transactionData.effects.status.status === 'success') {
-          const events = transactionData.effects.events;
-          const coinBalanceReceiveEvents = events?.filter(
-            (event: any) =>
-              event.coinBalanceChange &&
-              event.coinBalanceChange.owner?.AddressOwner === address &&
-              event.coinBalanceChange.changeType !== 'Gas' &&
-              event.coinBalanceChange.amount >= 0
-          );
-          const coinBalanceSendEvents = events?.filter(
-            (event: any) =>
-              event.coinBalanceChange &&
-              event.coinBalanceChange.sender === address &&
-              event.coinBalanceChange.changeType !== 'Gas' &&
-              event.coinBalanceChange.changeType !== 'Pay'
-          );
-
-          const transferEvents: any = events?.filter(
-            (event: any) => event.transferObject
-          );
-          const moveEvents: any = events?.filter(
-            (event: any) => event.moveEvent
-          );
-
-          let totalCoinBalanceChange: number = 0;
-          let changeType: any = {
-            type: '',
-            from: '',
-            to: '',
-            resourceType: '',
-            changeTextSuffix: '',
-          };
-
-          coinBalanceReceiveEvents?.forEach((event: any) => {
-            totalCoinBalanceChange += event.coinBalanceChange.amount;
-            if (!changeType.type) {
-              if (event.coinBalanceChange.sender === AIRDROP_SENDER) {
-                changeType = {
-                  type: 'Receive',
-                  text: 'Airdrop',
-                  from: event.coinBalanceChange.sender,
-                  to: event.coinBalanceChange.owner?.AddressOwner,
-                  resourceType: event.coinBalanceChange.coinType,
-                  changeTextSuffix:
-                    ' ' + event.coinBalanceChange.coinType?.split('::')[2],
-                };
-              } else {
-                changeType = {
-                  type: 'Receive',
-                  text: 'Received',
-                  from: event.coinBalanceChange.sender,
-                  to: event.coinBalanceChange.owner?.AddressOwner,
-                  resourceType: event.coinBalanceChange.coinType,
-                  changeTextSuffix:
-                    ' ' + event.coinBalanceChange.coinType?.split('::')[2],
-                };
-              }
-            }
-          });
-
-          coinBalanceSendEvents?.forEach((event: any) => {
-            totalCoinBalanceChange += event.coinBalanceChange.amount;
-            if (!changeType.type) {
-              changeType = {
-                type: 'Send',
-                text: 'Sent',
-                from: event.coinBalanceChange.sender,
-                to: event.coinBalanceChange.owner?.AddressOwner,
-                resourceType: event.coinBalanceChange.coinType,
-                changeTextSuffix:
-                  ' ' + event.coinBalanceChange.coinType?.split('::')[2],
-              };
-            }
-          });
-
-          await Promise.all(
-            transferEvents?.map(async (event: any) => {
-              if (
-                event.transferObject.objectType === '0x2::devnet_nft::DevNetNFT'
-              ) {
-                const nftData = await this.provider.getObject(
-                  event.transferObject.objectId
-                );
-
-                const nftDetails: any = nftData.details;
-                changeType = {
-                  nftData: nftDetails,
-                  type:
-                    event.transferObject.recipient?.AddressOwner === address
-                      ? 'Receive'
-                      : 'Send',
-                  text:
-                    event.transferObject.recipient?.AddressOwner === address
-                      ? 'NFT Received'
-                      : 'NFT Sent',
-                  from: event.transferObject.sender,
-                  to: event.transferObject.recipient?.AddressOwner,
-                  resourceType: event.transferObject.objectType,
-                  changeTextSuffix: ` ${nftDetails?.data?.fields?.name}`,
-                };
-                totalCoinBalanceChange =
-                  event.transferObject.recipient?.AddressOwner === address
-                    ? 1
-                    : -1;
-              }
-            })
-          );
-
-          await Promise.all(
-            moveEvents?.map(async (event: any) => {
-              if (event.moveEvent.type === '0x2::devnet_nft::MintNFTEvent') {
-                const nftData = await this.provider.getObject(
-                  event.moveEvent.fields.object_id
-                );
-
-                const nftDetails: any = nftData.details;
-                changeType = {
-                  nftData: nftDetails,
-                  type: 'Receive',
-                  text: 'NFT Minted',
-                  resourceType: event.moveEvent.type,
-                  changeTextSuffix: ` ${nftDetails?.data?.fields?.name}`,
-                };
-                totalCoinBalanceChange = 1;
-              }
-            })
-          );
-
-          const timestamp: any = transactionData.timestamp_ms;
-
-          finalTransacationsData.push({
-            ...transactionData,
-            totalCoinBalanceChange,
-            changeType,
-            date: new Date(timestamp).toLocaleDateString('en-GB', {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-            }),
-          });
-        }
-      })
+    // combine from and to transactions
+    const [txnIds, fromTxnIds] = await Promise.all([
+      this.provider.queryTransactions({
+        filter: {
+          ToAddress: address!,
+        },
+      }),
+      this.provider.queryTransactions({
+        filter: {
+          FromAddress: address!,
+        },
+      }),
+    ]);
+    // It seems to be expensive to fetch all transaction data at once though
+    const resp = await this.provider.getTransactionResponseBatch(
+      dedupe([...txnIds.data, ...fromTxnIds.data].map((x) => x.digest)),
+      {
+        showInput: true,
+        showEffects: true,
+        showEvents: true,
+      },
     );
 
-    finalTransacationsData.sort((a, b) => b.timestamp_ms - a.timestamp_ms);
-
-    return finalTransacationsData;
+    return resp.sort(
+      // timestamp could be null, so we need to handle
+      (a, b) => (b.timestampMs || 0) - (b.timestampMs || 0),
+    );
   }
 
   async getNfts(address: SuiAddress) {
     let objects = await this.provider.getObjectsOwnedByAddress(address);
-    var nfts: GetObjectDataResponse[] = [];
-    const originByteNftData = [];
+    var nfts: any = [];
+    const originByteNftData: any = [];
     await Promise.all(
       objects.map(async (obj) => {
-        let objData = await this.provider.getObject(obj.objectId);
+        let objData = await this.provider.getObject(obj.objectId, {
+          showBcs: true,
+          showContent: true,
+          showDisplay: true,
+          showOwner: true,
+          showPreviousTransaction: true,
+          showStorageRebate: true,
+          showType: true,
+        });
 
         if (!objData) return;
 
-        const objectDetails = objData.details;
+        const objectDetails: any = objData.details;
 
         if (
           typeof objectDetails !== 'string' &&
@@ -502,13 +318,12 @@ export class WalletClient {
           }
         }
 
-        let moveObj = getMoveObject(objData);
-        if (!Coin.isCoin(objData) && moveObj!.fields.url) {
+        if (!Coin.isCoin(objData) && objectDetails!.fields.url) {
           nfts.push(objData);
-        } else if (moveObj!.fields.metadata) {
+        } else if (objectDetails!.fields.metadata) {
           nfts.push(objData);
         }
-      })
+      }),
     );
 
     // fetch originbyte nfts
@@ -519,7 +334,7 @@ export class WalletClient {
     originByteNfts.map((data) => {
       try {
         let obj: any = originByteNftData.filter(
-          (val) => val.details.reference.objectId === data.nft.id
+          (val: any) => val.details.reference.objectId === data.nft.id,
         );
 
         if (obj.length === 0) return;
@@ -543,19 +358,15 @@ export class WalletClient {
     suiAccount: Ed25519Keypair,
     name?: string,
     description?: string,
-    imageUrl?: string
+    imageUrl?: string,
   ) {
     const keypair = suiAccount;
-    const accountSigner = new RawSigner(
-      keypair,
-      this.provider,
-      this.serializer
-    );
+    const accountSigner = new RawSigner(keypair, this.provider);
     const mintedNft = NftClient.mintExampleNFT(
       accountSigner,
       name,
       description,
-      imageUrl
+      imageUrl,
     );
     return mintedNft;
   }
@@ -563,14 +374,10 @@ export class WalletClient {
   async transferNft(
     suiAccount: Ed25519Keypair,
     nftId: string,
-    recipientID: string
+    recipientID: string,
   ) {
     const keypair = suiAccount;
-    const accountSigner = new RawSigner(
-      keypair,
-      this.provider,
-      this.serializer
-    );
+    const accountSigner = new RawSigner(keypair, this.provider);
     const mintedNft = NftClient.TransferNFT(accountSigner, nftId, recipientID);
     return mintedNft;
   }
@@ -578,7 +385,7 @@ export class WalletClient {
   static getAccountFromMetaData(mnemonic: string, metadata: AccountMetaData) {
     const keypair: any = Ed25519Keypair.deriveKeypair(
       mnemonic,
-      metadata.derivationPath
+      metadata.derivationPath,
     );
     return keypair;
   }
