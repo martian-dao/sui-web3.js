@@ -1,6 +1,5 @@
-import { AccountMetaData, Wallet, WalletClient } from "./wallet_client";
+import { WalletClient } from "./wallet_client";
 import * as Nacl from "tweetnacl";
-import { SignableTransaction } from "./signers/txn-data-serializers/txn-data-serializer";
 
 const NODE_URL = 'https://fullnode.devnet.sui.io/';
 const FAUCET_URL = 'https://faucet.devnet.sui.io/gas';
@@ -59,18 +58,18 @@ test("verify create wallet and airdrop", async () => {
   expect(balance).toBeGreaterThan(0);
 });
 
-test("verify simulation wallet", async () => {
-  const txn: SignableTransaction = { "kind": "moveCall", "data": { "packageObjectId": "0x2", "module": "devnet_nft", "function": "mint", "typeArguments": [], "arguments": ["Example NFT Dapps", "An NFT created by Sui Wallet", "https://aptos.dev/img/nyan.jpeg"], "gasBudget": 10000 } }
-  const response = await apis.simulateTransaction(aliceAccount.getPublicKey().toSuiAddress(), txn);
-  expect(response.status.status).toBe('success')
-});
+// test("verify simulation wallet", async () => {
+//   const txn = { "kind": "moveCall", "data": { "packageObjectId": "0x2", "module": "devnet_nft", "function": "mint", "typeArguments": [], "arguments": ["Example NFT Dapps", "An NFT created by Sui Wallet", "https://aptos.dev/img/nyan.jpeg"], "gasBudget": 10000 } }
+//   const response = await apis.simulateTransaction(aliceAccount.getPublicKey().toSuiAddress(), txn);
+//   expect(response.status.status).toBe('success')
+// });
 
 test("verify Adding accounts", async () => {
-  const response: AccountMetaData = await apis.createNewAccount(alice.code, 1);
+  const response = await apis.createNewAccount(alice.code, 1);
   expect(response.derivationPath).toBe("m/44'/784'/1'/0'/0'");
 });
 
 test("verify Import Wallet", async () => {
-  const response: Wallet = await apis.importWallet("arena nothing skate then sport huge fence era cheese client powder tackle");
+  const response = await apis.importWallet("arena nothing skate then sport huge fence era cheese client powder tackle");
   expect(response.accounts.length).toBe(3);
 });

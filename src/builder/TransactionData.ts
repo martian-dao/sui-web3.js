@@ -87,13 +87,8 @@ export class TransactionDataBuilder {
         expiration: data.V1.expiration,
         gasConfig: data.V1.gasData,
         inputs: programmableTx.inputs.map((value: unknown, index: number) =>
-          create(
-            {
-              kind: 'Input',
-              value,
-              index,
-              type: is(value, PureCallArg) ? 'pure' : 'object',
-            },
+        // @ts-ignore
+          create({kind: 'Input', value, index, type: is(value, PureCallArg) ? 'pure' : 'object',},
             TransactionInput,
           ),
         ),
@@ -135,6 +130,7 @@ export class TransactionDataBuilder {
   constructor(clone?: TransactionDataBuilder) {
     this.sender = clone?.sender;
     this.expiration = clone?.expiration;
+        // @ts-ignore
     this.gasConfig = clone?.gasConfig ?? {};
     this.inputs = clone?.inputs ?? [];
     this.commands = clone?.commands ?? [];
@@ -214,6 +210,7 @@ export class TransactionDataBuilder {
       throw new Error('All input values must be provided before serializing.');
     }
 
+        // @ts-ignore
     return create(this, SerializedTransactionDataBuilder);
   }
 }

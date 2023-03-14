@@ -3,6 +3,7 @@
 
 import { FaucetResponse, SuiAddress } from '../types';
 import { HttpHeaders } from './client';
+import fetch from 'isomorphic-fetch';
 
 export class FaucetRateLimitError extends Error {}
 

@@ -16,6 +16,7 @@ import {
 import { pkgVersion } from '../pkg-version';
 import { TARGETED_RPC_VERSION } from '../providers/json-rpc-provider';
 import { RequestParamsLike } from 'jayson';
+import fetch from 'isomorphic-fetch';
 
 /**
  * An object defining headers to be passed to the RPC server

@@ -2,7 +2,7 @@ import * as bip39 from '@scure/bip39';
 import * as english from '@scure/bip39/wordlists/english';
 import { Transaction } from './builder';
 import { Ed25519Keypair } from './cryptography/ed25519-keypair';
-import { NftClient } from './nft_client';
+// import { NftClient } from './nft_client';
 import { JsonRpcProvider } from './providers/json-rpc-provider';
 import { Connection } from './rpc/connection';
 import { DEFAULT_CLIENT_OPTIONS } from './rpc/websocket-client';
@@ -34,7 +34,7 @@ export interface Wallet {
 
 export class WalletClient {
   provider: JsonRpcProvider;
-  nftClient: NftClient;
+  // nftClient: NftClient;
 
   constructor(nodeUrl: string, faucetUrl: string) {
     this.provider = new JsonRpcProvider(
@@ -47,7 +47,7 @@ export class WalletClient {
         socketOptions: DEFAULT_CLIENT_OPTIONS,
       },
     );
-    this.nftClient = new NftClient(this.provider);
+    // this.nftClient = new NftClient(this.provider);
   }
 
   /**
@@ -108,7 +108,9 @@ export class WalletClient {
         'hex',
       );
       // check if this account exists on Sui or not
-      const response = await this.provider.getObjectsOwnedByAddress(address);
+      const response = await this.provider.getObjectsOwnedByAddress({
+        owner: address,
+      });
       if (Object.keys(response).length !== 0 || i === 0) {
         accountMetaData.push({
           derivationPath,
@@ -175,7 +177,7 @@ export class WalletClient {
     const coin = tx.splitCoin(tx.gas, tx.pure(amount));
     tx.transferObjects([coin], tx.pure(receiverAddress));
     const signer = new RawSigner(keypair, this.provider);
-    return await signer.signAndExecuteTransaction(tx);
+    return await signer.signAndExecuteTransaction({ transaction: tx });
   }
 
   async getBalance(address: string, typeArg: string = SUI_TYPE_ARG) {
@@ -247,7 +249,7 @@ export class WalletClient {
    * @returns The transaction effects
    */
   async dryRunTransaction(tx: Uint8Array): Promise<DryRunTransactionResponse> {
-    return this.provider.dryRunTransaction(tx);
+    return this.provider.dryRunTransaction({ transaction: tx });
   }
 
   async simulateTransaction(
@@ -271,14 +273,17 @@ export class WalletClient {
       }),
     ]);
     // It seems to be expensive to fetch all transaction data at once though
-    const resp = await this.provider.getTransactionResponseBatch(
-      dedupe([...txnIds.data, ...fromTxnIds.data].map((x) => x.digest)),
-      {
+    const resp = await this.provider.multiGetTransactions({
+      digests: dedupe(
+        [...txnIds.data, ...fromTxnIds.data].map((x) => x.digest),
+      ),
+      options: {
         showInput: true,
         showEffects: true,
         showEvents: true,
+        showObjectChanges: true,
       },
-    );
+    });
 
     return resp.sort(
       // timestamp could be null, so we need to handle
@@ -287,19 +292,24 @@ export class WalletClient {
   }
 
   async getNfts(address: SuiAddress) {
-    let objects = await this.provider.getObjectsOwnedByAddress(address);
+    let objects = await this.provider.getObjectsOwnedByAddress({
+      owner: address,
+    });
     var nfts: any = [];
     const originByteNftData: any = [];
     await Promise.all(
       objects.map(async (obj) => {
-        let objData = await this.provider.getObject(obj.objectId, {
-          showBcs: true,
-          showContent: true,
-          showDisplay: true,
-          showOwner: true,
-          showPreviousTransaction: true,
-          showStorageRebate: true,
-          showType: true,
+        let objData = await this.provider.getObject({
+          id: obj.objectId,
+          options: {
+            showBcs: true,
+            showContent: true,
+            showDisplay: true,
+            showOwner: true,
+            showPreviousTransaction: true,
+            showStorageRebate: true,
+            showType: true,
+          },
         });
 
         if (!objData) return;
@@ -326,61 +336,61 @@ export class WalletClient {
       }),
     );
 
-    // fetch originbyte nfts
-    const originByteNfts = await this.nftClient.getNftsById({
-      objects: originByteNftData,
-    });
+    // // fetch originbyte nfts
+    // const originByteNfts = await this.nftClient.getNftsById({
+    //   objects: originByteNftData,
+    // });
 
-    originByteNfts.map((data) => {
-      try {
-        let obj: any = originByteNftData.filter(
-          (val: any) => val.details.reference.objectId === data.nft.id,
-        );
+    // originByteNfts.map((data) => {
+    //   try {
+    //     let obj: any = originByteNftData.filter(
+    //       (val: any) => val.details.reference.objectId === data.nft.id,
+    //     );
 
-        if (obj.length === 0) return;
+    //     if (obj.length === 0) return;
 
-        obj = obj[0];
+    //     obj = obj[0];
 
-        obj.details.data.fields = {
-          ...obj.details.data.fields,
-          ...data.fields,
-        };
-        nfts.push(obj);
-      } catch (err) {
-        console.log(err);
-      }
-    });
+    //     obj.details.data.fields = {
+    //       ...obj.details.data.fields,
+    //       ...data.fields,
+    //     };
+    //     nfts.push(obj);
+    //   } catch (err) {
+    //     console.log(err);
+    //   }
+    // });
 
     return nfts;
   }
 
-  async mintNfts(
-    suiAccount: Ed25519Keypair,
-    name?: string,
-    description?: string,
-    imageUrl?: string,
-  ) {
-    const keypair = suiAccount;
-    const accountSigner = new RawSigner(keypair, this.provider);
-    const mintedNft = NftClient.mintExampleNFT(
-      accountSigner,
-      name,
-      description,
-      imageUrl,
-    );
-    return mintedNft;
-  }
+  // async mintNfts(
+  //   suiAccount: Ed25519Keypair,
+  //   name?: string,
+  //   description?: string,
+  //   imageUrl?: string,
+  // ) {
+  //   const keypair = suiAccount;
+  //   const accountSigner = new RawSigner(keypair, this.provider);
+  //   const mintedNft = NftClient.mintExampleNFT(
+  //     accountSigner,
+  //     name,
+  //     description,
+  //     imageUrl,
+  //   );
+  //   return mintedNft;
+  // }
 
-  async transferNft(
-    suiAccount: Ed25519Keypair,
-    nftId: string,
-    recipientID: string,
-  ) {
-    const keypair = suiAccount;
-    const accountSigner = new RawSigner(keypair, this.provider);
-    const mintedNft = NftClient.TransferNFT(accountSigner, nftId, recipientID);
-    return mintedNft;
-  }
+  // async transferNft(
+  //   suiAccount: Ed25519Keypair,
+  //   nftId: string,
+  //   recipientID: string,
+  // ) {
+  //   const keypair = suiAccount;
+  //   const accountSigner = new RawSigner(keypair, this.provider);
+  //   const mintedNft = NftClient.TransferNFT(accountSigner, nftId, recipientID);
+  //   return mintedNft;
+  // }
 
   static getAccountFromMetaData(mnemonic: string, metadata: AccountMetaData) {
     const keypair: any = Ed25519Keypair.deriveKeypair(
