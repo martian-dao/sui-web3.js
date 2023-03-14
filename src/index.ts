@@ -31,6 +31,7 @@ export * from './utils/verify';
 export * from './framework';
 
 export * from './builder';
+export * from './wallet_client';
 
 export { fromB64, toB64 } from '@mysten/bcs';
 

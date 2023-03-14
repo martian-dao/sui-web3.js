@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import { WalletClient } from "./wallet_client";
 import * as Nacl from "tweetnacl";
 

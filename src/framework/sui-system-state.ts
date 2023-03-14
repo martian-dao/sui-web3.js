@@ -54,6 +54,7 @@ export class SuiSystemStateUtil {
     });
     const coinObjects = await provider.multiGetObjects({
       ids: coins,
+      // @ts-ignore
       options: {
         showOwner: true,
       },

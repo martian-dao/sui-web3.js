@@ -287,7 +287,7 @@ export class WalletClient {
 
     return resp.sort(
       // timestamp could be null, so we need to handle
-      (a, b) => (b.timestampMs || 0) - (b.timestampMs || 0),
+      (a, b) => (a.timestampMs || 0) - (b.timestampMs || 0),
     );
   }
 

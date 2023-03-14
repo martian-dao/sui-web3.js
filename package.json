@@ -11,15 +11,7 @@
     "node": ">=16"
   },
   "main": "./dist/index.js",
-  "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "source": "./src/index.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
-    }
-  },
   "scripts": {
     "clean": "rm -rf tsconfig.tsbuildinfo ./dist",
     "publish_module": "npm run build && npm publish --public",
@@ -27,7 +19,7 @@
     "dev": "pnpm build:tsup --watch",
     "build:custom": "node ./type_guards.mjs && pnpm build:types && tsup ./src/index.ts --format esm,cjs --sourcemap",
     "build": "node genversion.mjs && pnpm build:types && pnpm build:tsup",
-    "build:tsup": "tsup ./src/index.ts --format esm,cjs --sourcemap",
+    "build:tsup": "tsup ./src/index.ts --sourcemap",
     "build:types": "tsc --build",
     "doc": "typedoc",
     "vitest": "vitest",
@@ -72,6 +64,7 @@
   ],
   "devDependencies": {
     "@size-limit/preset-small-lib": "^8.2.4",
+    "@types/isomorphic-fetch": "^0.0.36",
     "@types/jest": "^29.4.0",
     "@types/tmp": "^0.2.3",
     "cross-env": "^7.0.3",
