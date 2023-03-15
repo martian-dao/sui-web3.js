@@ -90,7 +90,7 @@ export class TransactionDataBuilder {
         gasConfig: data.V1.gasData,
         inputs: programmableTx.inputs.map((value: unknown, index: number) =>
           // @ts-ignore
-          create({ kind: 'Input', value, index, type: is(value, PureCallArg) ? 'pure' : 'object',},
+          create({ kind: 'Input', value, index, type: is(value, PureCallArg) ? 'pure' : 'object', },
             TransactionInput,
           ),
         ),

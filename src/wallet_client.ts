@@ -214,6 +214,12 @@ export class WalletClient {
     return coins;
   }
 
+  async getStake(address: string) {
+    return await this.provider.getStakes({
+      owner: address,
+    });
+  }
+
   async getGasObject(address: string, exclude: ObjectId[]) {
     const gasObj = await this.provider.selectCoinsWithBalanceGreaterThanOrEqual(
       address,
