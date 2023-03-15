@@ -202,16 +202,32 @@ export class WalletClient {
   async getCoinsWithRequiredBalance(
     address: string,
     amount: number,
-    typeArg: string = SUI_TYPE_ARG,
+    cursor?: string,
+    limit?: number,
   ) {
-    const coinsNeeded =
-      await this.provider.selectCoinSetWithCombinedBalanceGreaterThanOrEqual(
-        address,
-        BigInt(amount),
-        typeArg,
-      );
-    const coins: ObjectId[] = coinsNeeded.map((coin) => coin.coinObjectId);
+    const input: any = {
+      owner: address,
+    };
+
+    if (cursor) input.cursor = cursor;
+    if (limit) input.limit = limit;
+
+    const coinsNeeded = await this.provider.getCoins(input);
+    const coins: ObjectId[] = coinsNeeded.data
+      .map((coin) => (coin.balance >= amount ? coin.coinObjectId : undefined))
+      .filter((d) => d);
     return coins;
+  }
+
+  async getCoins(address: string, cursor?: string, limit?: number) {
+    const input: any = {
+      owner: address,
+    };
+
+    if (cursor) input.cursor = cursor;
+    if (limit) input.limit = limit;
+    const data = await this.provider.getCoins(input);
+    return data;
   }
 
   async getStake(address: string) {
@@ -220,17 +236,21 @@ export class WalletClient {
     });
   }
 
-  async getGasObject(address: string, exclude: ObjectId[]) {
-    const gasObj = await this.provider.selectCoinsWithBalanceGreaterThanOrEqual(
-      address,
-      BigInt(DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER),
-      SUI_TYPE_ARG,
-      exclude,
-    );
+  async getGasObjectsOwnedByAddress(address: string) {
+    const objects = await this.provider.getOwnedObjects({
+      owner: address,
+      // @ts-ignore
+      options: { showType: true, showContent: true, showOwner: true },
+    });
+    return objects.filter((obj) => Coin.isSUI(obj));
+  }
+
+  async getGasObject(address: string) {
+    const gasObj = await this.getGasObjectsOwnedByAddress(address);
     if (gasObj.length === 0) {
       throw new Error('Not Enough Gas');
     }
-    const gasObjId: ObjectId = gasObj[0].coinObjectId;
+    const gasObjId: ObjectId = gasObj[0].objectId;
     return gasObjId;
   }
 
@@ -247,6 +267,10 @@ export class WalletClient {
       coinTypeArg: c.coinType,
     }));
     return coinIds;
+  }
+
+  async getActiveValidators() {
+    return (await this.provider.getLatestSuiSystemState()).activeValidators;
   }
 
   /**
