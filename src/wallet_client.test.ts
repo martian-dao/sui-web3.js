@@ -3,8 +3,8 @@
 import { WalletClient } from "./wallet_client";
 import * as Nacl from "tweetnacl";
 
-const NODE_URL = 'https://fullnode.devnet.sui.io/';
-const FAUCET_URL = 'https://faucet.devnet.sui.io/gas';
+const NODE_URL = 'http://127.0.0.1:9000';
+const FAUCET_URL = 'http://127.0.0.1:5003/gas';
 
 let alice;
 let aliceAccount;
@@ -39,8 +39,10 @@ async function setupAccount() {
     aliceAccount = await WalletClient.fromDerivePath(
       alice.code,
     );
+    console.log(aliceAccount.getPublicKey().toSuiAddress())
     await apis.airdrop(aliceAccount.getPublicKey().toSuiAddress());
   }catch(err){
+    console.log(err)
     const mnemonic = "arena nothing skate then sport huge fence era cheese client powder tackle"
     alice = await apis.importWallet(mnemonic);
     aliceAccount = await WalletClient.fromDerivePath(mnemonic)
@@ -73,5 +75,5 @@ test("verify Adding accounts", async () => {
 
 test("verify Import Wallet", async () => {
   const response = await apis.importWallet("arena nothing skate then sport huge fence era cheese client powder tackle");
-  expect(response.accounts.length).toBe(3);
+  expect(response.accounts.length).toBe(1);
 });

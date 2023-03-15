@@ -1,20 +1,23 @@
-import { RawSigner } from './signers/raw-signer';
-import { SuiExecuteTransactionResponse } from './types';
-import { SuiObject } from './types/objects';
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+import {
+  SuiObjectData,
+  is,
+  getObjectFields,
+  getObjectType,
+  getSuiObjectData,
+} from '.';
 
-import type { GetObjectDataResponse, SuiMoveObject } from './types/objects';
-
-import { JsonRpcProvider } from './providers/json-rpc-provider';
+import type { SuiObjectResponse, JsonRpcProvider, SuiMoveObject } from '.';
 
 export interface WithIds {
-  objectIds?: string[];
-  objects?: any[];
+  objectIds: string[];
 }
 
 type FetchFnParser<RpcResponse, DataModel> = (
   typedData: RpcResponse,
-  suiObject: SuiObject,
-  rpcResponse: GetObjectDataResponse
+  suiObject: SuiObjectData,
+  rpcResponse: SuiObjectResponse,
 ) => DataModel | undefined;
 
 type SuiObjectParser<RpcResponse, DataModel> = {
@@ -74,9 +77,6 @@ type NftDomains = {
   description: string;
 };
 
-const DEFAULT_NFT_IMAGE =
-  'ipfs://QmZPWWy5Si54R3d26toaqRiqvCH7HkGdXkxwUgCm2oKKM2?filename=img-sq-01.png';
-
 export type Nft = {
   nft: NftRaw;
   fields?: Partial<NftDomains>;
@@ -93,11 +93,11 @@ export const NftParser: SuiObjectParser<NftRpcResponse, NftRaw> = {
   parser: (data, suiData, rpcResponse) => {
     if (
       typeof rpcResponse.details === 'object' &&
-      'data' in rpcResponse.details
+      'owner' in rpcResponse.details
     ) {
       const { owner } = rpcResponse.details;
 
-      const matches = (suiData.data as SuiMoveObject).type.match(NftRegex);
+      const matches = (suiData.content as SuiMoveObject).type.match(NftRegex);
       if (!matches) {
         return undefined;
       }
@@ -107,8 +107,8 @@ export const NftParser: SuiObjectParser<NftRpcResponse, NftRaw> = {
 
       return {
         owner,
-        type: suiData.data.dataType,
-        id: rpcResponse.details.reference.objectId,
+        type: suiData.content?.dataType,
+        id: rpcResponse.details.objectId,
         packageObjectId,
         packageModule,
         packageModuleClassName,
@@ -122,51 +122,38 @@ export const NftParser: SuiObjectParser<NftRpcResponse, NftRaw> = {
   regex: NftRegex,
 };
 
-const isObjectExists = (o: GetObjectDataResponse) => o.status === 'Exists';
+const isObjectExists = (o: SuiObjectResponse) => o.status === 'Exists';
 
-const isTypeMatchRegex = (d: GetObjectDataResponse, regex: RegExp) => {
+const isTypeMatchRegex = (d: SuiObjectResponse, regex: RegExp) => {
   const { details } = d;
-  if (typeof details !== 'string' && 'data' in details)
-    if ('data' in details) {
-      const { data } = details;
-      if ('type' in data) {
-        return data.type.match(regex);
-      }
+  if (is(details, SuiObjectData)) {
+    const { content } = details;
+    if (content && 'type' in content) {
+      return content.type.match(regex);
     }
+  }
   return false;
 };
 
-export const parseDomains = (domains: GetObjectDataResponse[]) => {
+export const parseDomains = (domains: SuiObjectResponse[]) => {
   const response: Partial<NftDomains> = {};
   const urlDomain = domains.find((d) => isTypeMatchRegex(d, UrlDomainRegex));
   const displayDomain = domains.find((d) =>
-    isTypeMatchRegex(d, DisplayDomainRegex)
+    isTypeMatchRegex(d, DisplayDomainRegex),
   );
 
-  if (
-    urlDomain &&
-    typeof urlDomain !== 'string' &&
-    'details' in urlDomain &&
-    typeof urlDomain.details !== 'string' &&
-    'data' in urlDomain.details &&
-    'fields' in urlDomain.details.data
-  ) {
-    const { data } = urlDomain.details;
-    response.url = (data.fields as UrlDomainRpcResponse).value.fields.url;
+  if (urlDomain && getObjectFields(urlDomain)) {
+    response.url = (
+      getObjectFields(urlDomain) as UrlDomainRpcResponse
+    ).value.fields.url;
   }
-  if (
-    displayDomain &&
-    typeof displayDomain !== 'string' &&
-    'details' in displayDomain &&
-    typeof displayDomain.details !== 'string' &&
-    'data' in displayDomain.details &&
-    'fields' in displayDomain.details.data
-  ) {
-    const { data } = displayDomain.details;
+  if (displayDomain && getObjectFields(displayDomain)) {
     response.description = (
-      data.fields as DisplayDomainRpcResponse
+      getObjectFields(displayDomain) as DisplayDomainRpcResponse
     ).value.fields.description;
-    response.name = (data.fields as DisplayDomainRpcResponse).value.fields.name;
+    response.name = (
+      getObjectFields(displayDomain) as DisplayDomainRpcResponse
+    ).value.fields.name;
   }
 
   return response;
@@ -179,23 +166,15 @@ export class NftClient {
     this.provider = provider;
   }
 
-  parseObjects = async (
-    objects: GetObjectDataResponse[]
-  ): Promise<NftRaw[]> => {
+  parseObjects = async (objects: SuiObjectResponse[]): Promise<NftRaw[]> => {
     const parsedObjects = objects
       .filter(isObjectExists)
       .map((object) => {
-        if (
-          'details' in object &&
-          typeof object.details !== 'string' &&
-          'data' in object.details &&
-          'type' in object.details.data &&
-          object.details.data.type.match(NftParser.regex)
-        ) {
+        if (getObjectType(object)?.match(NftParser.regex)) {
           return NftParser.parser(
-            object.details.data.fields as NftRpcResponse,
-            object.details,
-            object
+            getObjectFields(object) as NftRpcResponse,
+            getSuiObjectData(object)!,
+            object,
           );
         }
         return undefined;
@@ -209,23 +188,36 @@ export class NftClient {
     if (ids.length === 0) {
       return new Array<NftRaw>();
     }
-    const objects = await this.provider.getObjectBatch(ids);
+    const objects = await this.provider.multiGetObjects({
+      ids,
+      // @ts-ignore
+      options: {
+        showType: true,
+        showContent: true,
+        showOwner: true,
+      },
+    });
     return this.parseObjects(objects);
   };
 
   getBagContent = async (bagId: string) => {
-    const bagObjects = await this.provider.getObjectsOwnedByObject(bagId);
-    const objectIds = bagObjects.map((bagObject) => bagObject.objectId);
-    return this.provider.getObjectBatch(objectIds);
+    const bagObjects = await this.provider.getDynamicFields({
+      parentId: bagId,
+    });
+    const objectIds = bagObjects.data.map((bagObject) => bagObject.objectId);
+    return this.provider.multiGetObjects({
+      ids: objectIds,
+      // @ts-ignore
+      options: {
+        showType: true,
+        showContent: true,
+        showOwner: true,
+      },
+    });
   };
 
   getNftsById = async (params: WithIds): Promise<Nft[]> => {
-    let nfts = [];
-    if (params.objectIds) {
-      nfts = await this.fetchAndParseObjectsById(params.objectIds);
-    } else if (params.objects) {
-      nfts = await this.parseObjects(params.objects);
-    }
+    const nfts = await this.fetchAndParseObjectsById(params.objectIds);
     const bags = await Promise.all(
       nfts.map(async (nft) => {
         const content = await this.getBagContent(nft.bagId);
@@ -233,7 +225,7 @@ export class NftClient {
           nftId: nft.id,
           content: parseDomains(content),
         };
-      })
+      }),
     );
     const bagsByNftId = new Map(bags.map((b) => [b.nftId, b]));
 
@@ -245,42 +237,4 @@ export class NftClient {
       };
     });
   };
-
-  /**
-   * Mint a Example NFT. The wallet address must own enough gas tokens to pay for the transaction.
-   *
-   * @param signer A signer with connection to the fullnode
-   */
-  public static async mintExampleNFT(
-    signer: RawSigner,
-    name?: string,
-    description?: string,
-    imageUrl?: string
-  ): Promise<SuiExecuteTransactionResponse> {
-    return await signer.executeMoveCall({
-      packageObjectId: '0x2',
-      module: 'devnet_nft',
-      function: 'mint',
-      typeArguments: [],
-      arguments: [
-        name || 'Example NFT',
-        description || 'An NFT created by Sui Wallet',
-        imageUrl || DEFAULT_NFT_IMAGE,
-      ],
-      gasBudget: 10000,
-    });
-  }
-
-  public static async TransferNFT(
-    signer: RawSigner,
-    nftId: string,
-    recipientID: string,
-    transferCost?: number
-  ): Promise<SuiExecuteTransactionResponse> {
-    return await signer.transferObject({
-      objectId: nftId,
-      gasBudget: transferCost || 10000,
-      recipient: recipientID,
-    });
-  }
 }
