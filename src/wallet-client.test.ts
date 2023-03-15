@@ -1,10 +1,10 @@
 // @ts-nocheck
 
-import { WalletClient } from "./wallet_client";
+import { WalletClient } from "./wallet-client";
 import * as Nacl from "tweetnacl";
 
-const NODE_URL = 'http://127.0.0.1:9000';
-const FAUCET_URL = 'http://127.0.0.1:5003/gas';
+const NODE_URL = 'http://18.234.194.115:9000';
+const FAUCET_URL = 'http://18.234.194.115:5003/gas';
 
 let alice;
 let aliceAccount;
@@ -39,10 +39,8 @@ async function setupAccount() {
     aliceAccount = await WalletClient.fromDerivePath(
       alice.code,
     );
-    console.log(aliceAccount.getPublicKey().toSuiAddress())
     await apis.airdrop(aliceAccount.getPublicKey().toSuiAddress());
   }catch(err){
-    console.log(err)
     const mnemonic = "arena nothing skate then sport huge fence era cheese client powder tackle"
     alice = await apis.importWallet(mnemonic);
     aliceAccount = await WalletClient.fromDerivePath(mnemonic)
