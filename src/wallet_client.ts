@@ -108,7 +108,7 @@ export class WalletClient {
         'hex',
       );
       // check if this account exists on Sui or not
-      const response = await this.provider.getObjectsOwnedByAddress({
+      const response = await this.provider.getOwnedObjects({
         owner: address,
       });
       if (Object.keys(response).length !== 0 || i === 0) {
@@ -298,7 +298,7 @@ export class WalletClient {
   }
 
   async getNfts(address: SuiAddress) {
-    let objects = await this.provider.getObjectsOwnedByAddress({
+    let objects = await this.provider.getOwnedObjects({
       owner: address,
     });
     var nfts: any = [];
