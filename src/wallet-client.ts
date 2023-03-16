@@ -307,11 +307,11 @@ export class WalletClient {
       digests: dedupe(
         [...txnIds.data, ...fromTxnIds.data].map((x) => x.digest),
       ),
+      // @ts-ignore
       options: {
         showInput: true,
         showEffects: true,
         showEvents: true,
-        showObjectChanges: true,
       },
     });
 
