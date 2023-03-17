@@ -33,6 +33,7 @@ export * from './framework';
 export * from './builder';
 export * from './wallet-client';
 export * from './nft-client';
+export * from './stakeHelperFunctions';
 
 export { fromB64, toB64 } from '@mysten/bcs';
 

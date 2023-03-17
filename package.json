@@ -95,6 +95,7 @@
     "@scure/bip32": "^1.1.5",
     "@scure/bip39": "^1.1.1",
     "@suchipi/femver": "^1.0.0",
+    "bignumber.js": "^9.1.1",
     "isomorphic-fetch": "^3.0.0",
     "jayson": "^4.0.0",
     "rpc-websockets": "^7.5.1",

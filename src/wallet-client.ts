@@ -14,10 +14,16 @@ import {
   SuiAddress,
   SUI_TYPE_ARG,
 } from './types';
-import { normalizeSuiAddress, SuiObjectData, getObjectFields } from './types';
+import {
+  normalizeSuiAddress,
+  SuiObjectData,
+  getObjectFields,
+  SuiValidatorSummary,
+} from './types';
 import { is } from './index';
 import { NftClient } from './nft-client';
 import { formatAddress } from './utils/format';
+import { calculateAPY, calculateStakeShare } from './stakeHelperFunctions';
 
 const COIN_TYPE = 784;
 const MAX_ACCOUNTS = 20;
@@ -323,7 +329,7 @@ export class WalletClient {
   }
 
   // Function to get the object metadata of a given objectId
-  async getObject(objectId: string, options?: { [key: string]: boolean }) {
+  async getObject(objectId: string, options?: any) {
     const normalizedObjId = normalizeSuiAddress(objectId);
     const objData = await this.provider.getObject({
       id: normalizedObjId,
@@ -338,11 +344,11 @@ export class WalletClient {
     const data = await this.getObject(objectID);
 
     const nftMeta = () => {
-      if (!data.data) return null;
+      if (!data) return null;
 
-      const { details } = data.data || {};
+      const { details } = data || {};
       if (!is(details, SuiObjectData) || !data) return null;
-      const fields = getObjectFields(data.data);
+      const fields = getObjectFields(data);
       if (!fields?.url) return null;
       return {
         description:
@@ -395,17 +401,19 @@ export class WalletClient {
         const originByteNft = await this.getOriginbyteNft(objectId);
 
         const nftName =
-          typeof nftMeta?.name === 'string'
-            ? nftMeta?.name
+          typeof nftMeta?.data?.name === 'string'
+            ? nftMeta?.data?.name
             : formatAddress(objectId);
         const displayTitle = originByteNft?.fields.name || nftName;
-        const nftUrl = nftMeta?.url;
+        const nftUrl = nftMeta?.data?.url;
 
         nftsWithMetadataArray.push({
           name: originByteNft?.fields.name || nftName!,
           src: originByteNft?.fields.url || nftUrl,
           title:
-            originByteNft?.fields.description || nftMeta?.description || '',
+            originByteNft?.fields.description ||
+            nftMeta?.data?.description ||
+            '',
           displayTitle,
           objectId,
         });
@@ -415,33 +423,76 @@ export class WalletClient {
     return nftsWithMetadataArray;
   }
 
-  // async mintNfts(
-  //   suiAccount: Ed25519Keypair,
-  //   name?: string,
-  //   description?: string,
-  //   imageUrl?: string,
-  // ) {
-  //   const keypair = suiAccount;
-  //   const accountSigner = new RawSigner(keypair, this.provider);
-  //   const mintedNft = NftClient.mintExampleNFT(
-  //     accountSigner,
-  //     name,
-  //     description,
-  //     imageUrl,
-  //   );
-  //   return mintedNft;
-  // }
+  // get the current system state (required to get total staked sui value and validators data)
+  async getSystemState() {
+    const state = await this.provider.getLatestSuiSystemState();
+    return state;
+  }
 
-  // async transferNft(
-  //   suiAccount: Ed25519Keypair,
-  //   nftId: string,
-  //   recipientID: string,
-  // ) {
-  //   const keypair = suiAccount;
-  //   const accountSigner = new RawSigner(keypair, this.provider);
-  //   const mintedNft = NftClient.TransferNFT(accountSigner, nftId, recipientID);
-  //   return mintedNft;
-  // }
+  // get total staked sui value
+  async getTotalStake() {
+    const data = await this.getSystemState();
+    if (!data) return 0;
+
+    return data.activeValidators.reduce(
+      (acc: any, curr: any) => (acc += BigInt(curr.stakingPoolSuiBalance)),
+      0n,
+    );
+  }
+
+  async getValidatorsList(
+    sortKey: string = 'stakeShare',
+    sortAscending?: boolean,
+  ) {
+    const data = await this.getSystemState();
+    if (!data) return [];
+
+    const totalStake = await this.getTotalStake();
+    const sortedAsc = data.activeValidators
+      .map((validator: any) => ({
+        name: validator.name,
+        address: validator.suiAddress,
+        apy: calculateAPY(validator, +data.epoch),
+        stakeShare: calculateStakeShare(
+          BigInt(validator.stakingPoolSuiBalance),
+          BigInt(totalStake),
+        ),
+      }))
+      .sort((a, b) => {
+        if (sortKey === 'name') {
+          return a[sortKey].localeCompare(b[sortKey], 'en', {
+            sensitivity: 'base',
+            numeric: true,
+          });
+        }
+        return a[sortKey] - b[sortKey];
+      });
+    return sortAscending ? sortedAsc : sortedAsc.reverse();
+  }
+
+  async getDelegatedStake(address: string) {
+    const stakedAmount = await this.provider.getStakes({ owner: address });
+    return stakedAmount;
+  }
+
+  // Get time between current epoch and specified epoch
+  // Get the period between the current epoch and next epoch
+  async useGetTimeBeforeEpochNumber(epoch: number) {
+    const data = await this.getSystemState();
+    // Current epoch
+    const currentEpoch = data?.epoch || 0;
+    const currentEpochStartTime = data?.epochStartTimestampMs || 0;
+    const epochPeriod = data?.epochDurationMs || 0;
+    const timeBeforeSpecifiedEpoch =
+      epoch > currentEpoch && epoch > 0 && epochPeriod > 0
+        ? currentEpochStartTime + (epoch - currentEpoch) * epochPeriod
+        : 0;
+
+    return {
+      ...data,
+      data: timeBeforeSpecifiedEpoch,
+    };
+  }
 
   static getAccountFromMetaData(mnemonic: string, metadata: AccountMetaData) {
     const keypair: any = Ed25519Keypair.deriveKeypair(
