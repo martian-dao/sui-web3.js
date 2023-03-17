@@ -14,6 +14,10 @@ import {
   SuiAddress,
   SUI_TYPE_ARG,
 } from './types';
+import { normalizeSuiAddress, SuiObjectData, getObjectFields } from './types';
+import { is } from './index';
+import { NftClient } from './nft-client';
+import { formatAddress } from './utils/format';
 
 const COIN_TYPE = 784;
 const MAX_ACCOUNTS = 20;
@@ -302,96 +306,113 @@ export class WalletClient {
         },
       }),
     ]);
-    // It seems to be expensive to fetch all transaction data at once though
-    const resp = await this.provider.multiGetTransactions({
-      digests: dedupe(
-        [...txnIds.data, ...fromTxnIds.data].map((x) => x.digest),
-      ),
-      // @ts-ignore
-      options: {
-        showInput: true,
-        showEffects: true,
-        showEvents: true,
-      },
-    });
 
-    return resp.sort(
+    const transactionsData = await Promise.all(
+      [...txnIds.data, ...fromTxnIds.data].map(async (x) => {
+        const txnData = await this.provider.getTransaction({
+          digest: x.digest,
+        });
+        return txnData;
+      }),
+    );
+
+    return transactionsData.sort(
       // timestamp could be null, so we need to handle
       (a, b) => (a.timestampMs || 0) - (b.timestampMs || 0),
     );
   }
 
+  // Function to get the object metadata of a given objectId
+  async getObject(objectId: string, options?: { [key: string]: boolean }) {
+    const normalizedObjId = normalizeSuiAddress(objectId);
+    const objData = await this.provider.getObject({
+      id: normalizedObjId,
+      options,
+    });
+
+    return objData;
+  }
+
+  // Function to get the metadata of a an nft with the given object id
+  async getNftMetadata(objectID: string) {
+    const data = await this.getObject(objectID);
+
+    const nftMeta = () => {
+      if (!data.data) return null;
+
+      const { details } = data.data || {};
+      if (!is(details, SuiObjectData) || !data) return null;
+      const fields = getObjectFields(data.data);
+      if (!fields?.url) return null;
+      return {
+        description:
+          typeof fields.description === 'string' ? fields.description : null,
+        name: typeof fields.name === 'string' ? fields.name : null,
+        url: fields.url,
+      };
+    };
+
+    return {
+      ...data,
+      data: nftMeta(),
+    };
+  }
+
+  // Function to parge the ipfs url of nft metadata (same as we do with aptos nfts ipfs urls)
+  parseIpfsUrl(ipfsUrl: string) {
+    return ipfsUrl.replace(/^ipfs:\/\//, 'https://ipfs.io/ipfs/');
+  }
+
+  // Function to the get originbyte nft metadata for a given nft object id
+  async getOriginbyteNft(nftId: string) {
+    const client = new NftClient(this.provider);
+    const nfts = await client.getNftsById({ objectIds: [nftId!] });
+    const nft = nfts[0];
+    if (nft) {
+      return {
+        ...nft,
+        fields: {
+          ...nft.fields,
+          url: this.parseIpfsUrl(nft.fields?.url ?? ''),
+        },
+      };
+    }
+    return null;
+  }
+
+  // Function to get an array of all the nfts (with required metadata) owned by an address
   async getNfts(address: SuiAddress) {
     let objects = await this.provider.getOwnedObjects({
       owner: address,
     });
-    var nfts: any = [];
-    const originByteNftData: any = [];
+
+    const nfts = objects?.filter((obj) => !Coin.isCoin(obj));
+    const nftsWithMetadataArray = [];
+
     await Promise.all(
-      objects.map(async (obj) => {
-        let objData = await this.provider.getObject({
-          id: obj.objectId,
-          options: {
-            showBcs: true,
-            showContent: true,
-            showDisplay: true,
-            showOwner: true,
-            showPreviousTransaction: true,
-            showStorageRebate: true,
-            showType: true,
-          },
+      nfts.map(async ({ objectId }) => {
+        const nftMeta = await this.getNftMetadata(objectId);
+        const originByteNft = await this.getOriginbyteNft(objectId);
+
+        const nftName =
+          typeof nftMeta?.name === 'string'
+            ? nftMeta?.name
+            : formatAddress(objectId);
+        const displayTitle = originByteNft?.fields.name || nftName;
+        const nftUrl = nftMeta?.url;
+
+        nftsWithMetadataArray.push({
+          name: originByteNft?.fields.name || nftName!,
+          src: originByteNft?.fields.url || nftUrl,
+          title:
+            originByteNft?.fields.description || nftMeta?.description || '',
+          displayTitle,
+          objectId,
         });
-
-        if (!objData) return;
-
-        const objectDetails: any = objData.details;
-
-        if (
-          typeof objectDetails !== 'string' &&
-          'data' in objectDetails &&
-          'fields' in objectDetails.data
-        ) {
-          if (objectDetails.data.fields.bag) {
-            // originbyte nft standard
-            originByteNftData.push(objData);
-            return;
-          }
-        }
-
-        if (!Coin.isCoin(objData) && objectDetails!.fields.url) {
-          nfts.push(objData);
-        } else if (objectDetails!.fields.metadata) {
-          nfts.push(objData);
-        }
       }),
     );
 
-    // // fetch originbyte nfts
-    // const originByteNfts = await this.nftClient.getNftsById({
-    //   objects: originByteNftData,
-    // });
-
-    // originByteNfts.map((data) => {
-    //   try {
-    //     let obj: any = originByteNftData.filter(
-    //       (val: any) => val.details.reference.objectId === data.nft.id,
-    //     );
-
-    //     if (obj.length === 0) return;
-
-    //     obj = obj[0];
-
-    //     obj.details.data.fields = {
-    //       ...obj.details.data.fields,
-    //       ...data.fields,
-    //     };
-    //     nfts.push(obj);
-    //   } catch (err) {
-    //     console.log(err);
-    //   }
-    // });
-
-    return nfts;
+    return nftsWithMetadataArray;
   }
 
   // async mintNfts(
