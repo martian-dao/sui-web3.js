@@ -477,7 +477,7 @@ export class WalletClient {
 
   // Get time between current epoch and specified epoch
   // Get the period between the current epoch and next epoch
-  async useGetTimeBeforeEpochNumber(epoch: number) {
+  async getTimeBeforeEpochNumber(epoch: number) {
     const data = await this.getSystemState();
     // Current epoch
     const currentEpoch = data?.epoch || 0;
