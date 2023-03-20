@@ -25,7 +25,6 @@ import { NftClient } from './nft-client';
 import { formatAddress } from './utils/format';
 import { calculateAPY, calculateStakeShare } from './stakeHelperFunctions';
 
-
 const COIN_TYPE = 784;
 const MAX_ACCOUNTS = 20;
 const DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER = 1000;
@@ -450,7 +449,7 @@ export class WalletClient {
 
     const totalStake = await this.getTotalStake();
     const sortedAsc = data.activeValidators
-      .map((validator: any) => ({
+      .map((validator) => ({
         name: validator.name,
         address: validator.suiAddress,
         apy: calculateAPY(validator, +data.epoch),
@@ -458,6 +457,8 @@ export class WalletClient {
           BigInt(validator.stakingPoolSuiBalance),
           BigInt(totalStake),
         ),
+        totalStaked: validator.stakingPoolSuiBalance,
+        epoch: data.epoch,
       }))
       .sort((a, b) => {
         if (sortKey === 'name') {

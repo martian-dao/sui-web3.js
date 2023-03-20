@@ -17,7 +17,7 @@ export const calculateStakeShare = (
   return percentage;
 };
 
-export async function calculateAPY(
+export function calculateAPY(
   validator: SuiValidatorSummary,
   epoch: number,
   roundDecimals = 4,
