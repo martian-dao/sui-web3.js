@@ -3,7 +3,7 @@ import * as english from '@scure/bip39/wordlists/english';
 import { Transaction } from './builder';
 import { Ed25519Keypair } from './cryptography/ed25519-keypair';
 // import { NftClient } from './nft_client';
-import { JsonRpcProvider } from './providers/json-rpc-provider';
+import { JsonRpcProvider } from '.';
 import { Connection } from './rpc/connection';
 import { DEFAULT_CLIENT_OPTIONS } from './rpc/websocket-client';
 import { RawSigner } from './signers/raw-signer';
@@ -24,6 +24,7 @@ import { is } from './index';
 import { NftClient } from './nft-client';
 import { formatAddress } from './utils/format';
 import { calculateAPY, calculateStakeShare } from './stakeHelperFunctions';
+
 
 const COIN_TYPE = 784;
 const MAX_ACCOUNTS = 20;
@@ -118,7 +119,7 @@ export class WalletClient {
         'hex',
       );
       // check if this account exists on Sui or not
-      const response = await this.provider.getOwnedObjects({
+      const response = await this.provider.getAllBalances({
         owner: address,
       });
       if (Object.keys(response).length !== 0 || i === 0) {
@@ -247,7 +248,7 @@ export class WalletClient {
   }
 
   async getGasObjectsOwnedByAddress(address: string) {
-    const objects = await this.provider.getOwnedObjects({
+    const objects = await this.provider.getObjectsOwnedByAddress({
       owner: address,
       // @ts-ignore
       options: { showType: true, showContent: true, showOwner: true },
@@ -388,7 +389,7 @@ export class WalletClient {
 
   // Function to get an array of all the nfts (with required metadata) owned by an address
   async getNfts(address: SuiAddress) {
-    let objects = await this.provider.getOwnedObjects({
+    let objects = await this.provider.getObjectsOwnedByAddress({
       owner: address,
     });
 

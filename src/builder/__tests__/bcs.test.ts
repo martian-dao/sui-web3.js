@@ -25,7 +25,6 @@ it('can serialize simplified programmable call struct', () => {
         index: 0,
         resultIndex: 1,
       },
-      // @ts-ignore
       { kind: 'Input', index: 3 },
       { kind: 'Result', index: 1 },
     ],

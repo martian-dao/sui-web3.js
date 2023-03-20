@@ -5,8 +5,8 @@ import * as Nacl from 'tweetnacl';
 import { SUI_TYPE_ARG } from './types';
 import { Transaction } from './builder';
 
-const NODE_URL = 'http://18.234.194.115:9000';
-const FAUCET_URL = 'http://18.234.194.115:5003/gas';
+const NODE_URL = 'http:/54.221.13.167:9000';
+const FAUCET_URL = 'http://54.221.13.167:5003/gas';
 
 let alice;
 let aliceAccount;

@@ -172,7 +172,7 @@ export class Transaction {
     this.#transactionData.gasConfig.budget = String(budget);
   }
   setGasPayment(payments: SuiObjectRef[]) {
-    if (payments.length >= MAX_GAS_OBJECTS) {
+    if (payments.length > MAX_GAS_OBJECTS) {
       throw new Error(
         `Payment objects exceed maximum amount ${MAX_GAS_OBJECTS}`,
       );
@@ -217,7 +217,7 @@ export class Transaction {
   #input(type: 'object' | 'pure', value?: unknown) {
     const index = this.#transactionData.inputs.length;
     // @ts-ignore
-    const input = create({ kind: 'Input', value: typeof value === 'bigint' ? String(value) : value, index, type,},
+    const input = create({kind: 'Input', value: typeof value === 'bigint' ? String(value) : value, index, type,},
       TransactionInput,
     );
     this.#transactionData.inputs.push(input);
@@ -338,7 +338,7 @@ export class Transaction {
 
         return !matchingInput;
       })
-      .slice(0, MAX_GAS_OBJECTS - 1)
+      .slice(0, MAX_GAS_OBJECTS)
       .map((coin) => ({
         objectId: coin.coinObjectId,
         digest: coin.digest,
@@ -476,7 +476,7 @@ export class Transaction {
             if (arg.kind !== 'Input') return;
             const input = inputs[arg.index];
             // Skip if the input is already resolved
-            if (is(input.value, BuilderCallArg)) return;
+            if (is(input, BuilderCallArg)) return;
 
             const inputValue = input.value;
 

@@ -362,10 +362,3 @@ export function getMovePackageContent(
   }
   return (suiObject.content as SuiMovePackage).disassembled;
 }
-
-export const PaginatedObjectsResponse = object({
-  data: array(SuiObjectResponse),
-  nextCursor: union([ObjectId, literal(null)]),
-  hasNextPage: boolean(),
-});
-export type PaginatedObjectsResponse = Infer<typeof PaginatedObjectsResponse>;
