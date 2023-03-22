@@ -9,8 +9,10 @@ import { DEFAULT_CLIENT_OPTIONS } from './rpc/websocket-client';
 import { RawSigner } from './signers/raw-signer';
 import {
   Coin,
+  CoinStruct,
   DryRunTransactionResponse,
   ObjectId,
+  PaginatedCoins,
   SuiAddress,
   SUI_TYPE_ARG,
 } from './types';
@@ -27,6 +29,7 @@ import { calculateAPY, calculateStakeShare } from './stakeHelperFunctions';
 
 const COIN_TYPE = 784;
 const MAX_ACCOUNTS = 20;
+const MAX_COINS_PER_REQUEST = 100;
 const DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER = 1000;
 
 const dedupe = (arr: string[]) => Array.from(new Set(arr));
@@ -198,13 +201,6 @@ export class WalletClient {
     return objects.totalBalance;
   }
 
-  async getAllBalances(address: string) {
-    const objects = await this.provider.getAllBalances({
-      owner: address,
-    });
-    return objects;
-  }
-
   async airdrop(address: string) {
     return await this.provider.requestSuiFromFaucet(address);
   }
@@ -227,17 +223,6 @@ export class WalletClient {
       .map((coin) => (coin.balance >= amount ? coin.coinObjectId : undefined))
       .filter((d) => d);
     return coins;
-  }
-
-  async getCoins(address: string, cursor?: string, limit?: number) {
-    const input: any = {
-      owner: address,
-    };
-
-    if (cursor) input.cursor = cursor;
-    if (limit) input.limit = limit;
-    const data = await this.provider.getCoins(input);
-    return data;
   }
 
   async getStake(address: string) {
@@ -280,8 +265,51 @@ export class WalletClient {
     return coinIds;
   }
 
+  /**
+   *
+   * @param coinType coin type path
+   * @param address address to get the coins for
+   * @returns coins array
+   */
+  // Fetch all coins for an address, this will keep calling the API until all coins are fetched
+  async getCoins(coinType: string, address?: SuiAddress | null) {
+    let cursor: string | null = null;
+    const allData: CoinStruct[] = [];
+    // keep fetching until cursor is null or undefined
+    do {
+      const { data, nextCursor }: PaginatedCoins = await this.provider.getCoins(
+        {
+          owner: address!,
+          coinType,
+          cursor,
+          limit: MAX_COINS_PER_REQUEST,
+        },
+      );
+      if (!data || !data.length) {
+        break;
+      }
+
+      allData.push(...data);
+      cursor = nextCursor;
+    } while (cursor);
+
+    return allData;
+  }
+
+  async getCoinBalance(coinType: string, address?: SuiAddress | null) {
+    return await this.provider.getBalance({ owner: address!, coinType });
+  }
+
+  async getAllBalances(address?: SuiAddress | null) {
+    return await this.provider.getAllBalances({ owner: address! });
+  }
+
   async getActiveValidators() {
     return (await this.provider.getLatestSuiSystemState()).activeValidators;
+  }
+
+  async getCoinMetadata(coinType: string) {
+    return await this.provider.getCoinMetadata({ coinType });
   }
 
   /**
