@@ -21,7 +21,7 @@ import { normalizeSuiAddress, SuiObjectRef } from '../types';
 import { builder } from './bcs';
 import { TransactionCommand, TransactionInput } from './Commands';
 import { BuilderCallArg, PureCallArg } from './Inputs';
-import { create, DeepReadonly } from './utils';
+import { create } from './utils';
 
 export const TransactionExpiration = optional(
   nullable(
@@ -75,9 +75,9 @@ function prepareSuiAddress(address: string) {
 const TRANSACTION_DATA_MAX_SIZE = 128 * 1024;
 
 export class TransactionDataBuilder {
-  static fromBytes(bytes: Uint8Array) {
-    const data = builder.de('TransactionData', bytes);
-    const programmableTx = data?.V1?.kind?.ProgrammableTransaction;
+  static fromKindBytes(bytes: Uint8Array) {
+    const kind = builder.de('TransactionKind', bytes);
+    const programmableTx = kind?.ProgrammableTransaction;
     if (!programmableTx) {
       throw new Error('Unable to deserialize from bytes.');
     }
@@ -85,12 +85,16 @@ export class TransactionDataBuilder {
     const serialized = create(
       {
         version: 1,
-        sender: data.V1.sender,
-        expiration: data.V1.expiration,
-        gasConfig: data.V1.gasData,
+        // @ts-ignore
+        gasConfig: {},
         inputs: programmableTx.inputs.map((value: unknown, index: number) =>
-          // @ts-ignore
-          create({ kind: 'Input', value, index, type: is(value, PureCallArg) ? 'pure' : 'object',},
+          create(
+            {
+              kind: 'Input',
+              value,
+              index,
+              type: is(value, PureCallArg) ? 'pure' : 'object',
+            },
             TransactionInput,
           ),
         ),
@@ -99,9 +103,41 @@ export class TransactionDataBuilder {
       SerializedTransactionDataBuilder,
     );
 
-    const transactionData = new TransactionDataBuilder();
-    Object.assign(transactionData, serialized);
-    return transactionData;
+    return TransactionDataBuilder.restore(serialized);
+  }
+
+  static fromBytes(bytes: Uint8Array) {
+    const rawData = builder.de('TransactionData', bytes);
+    const data = rawData?.V1;
+    const programmableTx = data?.kind?.ProgrammableTransaction;
+    if (!data || !programmableTx) {
+      throw new Error('Unable to deserialize from bytes.');
+    }
+
+    const serialized = create(
+      {
+        version: 1,
+        sender: data.sender,
+        expiration: data.expiration,
+        gasConfig: data.gasData,
+        inputs: programmableTx.inputs.map((value: unknown, index: number) =>
+          create(
+            {
+              kind: 'Input',
+              value,
+              index,
+              type: is(value, PureCallArg) ? 'pure' : 'object',
+            },
+            TransactionInput,
+          ),
+        ),
+        commands: programmableTx.commands,
+      },
+      SerializedTransactionDataBuilder,
+    );
+
+    // @ts-ignore
+    return TransactionDataBuilder.restore(serialized);
   }
 
   static restore(data: SerializedTransactionDataBuilder) {
@@ -218,7 +254,7 @@ export class TransactionDataBuilder {
     return TransactionDataBuilder.getDigestFromBytes(bytes);
   }
 
-  snapshot(): DeepReadonly<SerializedTransactionDataBuilder> {
+  snapshot(): SerializedTransactionDataBuilder {
     // @ts-ignore
     return create(this, SerializedTransactionDataBuilder);
   }

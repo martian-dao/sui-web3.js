@@ -79,6 +79,7 @@ test('verify transferSuiMnemonic', async () => {
     aliceAccount,
     bobAccount.accounts[0].address,
   );
+  console.log(txnHash)
   const balance = await apis.getBalance(
     bobAccount.accounts[0].address,
     SUI_TYPE_ARG,
@@ -113,7 +114,7 @@ test('verify getStake', async () => {
 test('verify simulateTransaction', async () => {
   const bobAccount = await apis.createWallet();
   const txn = new Transaction();
-  const coin = txn.splitCoin(txn.gas, txn.pure(1));
+  const coin = txn.splitCoins(txn.gas, [txn.pure(1)]);
 
   txn.transferObjects([coin], txn.pure(bobAccount.accounts[0].address));
   txn.setSender(aliceAccount.getPublicKey().toSuiAddress());

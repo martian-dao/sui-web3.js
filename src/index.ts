@@ -27,13 +27,11 @@ export * from './types';
 export * from './utils/format';
 export * from './utils/intent';
 export * from './utils/verify';
+export * from './utils/errors';
 
 export * from './framework';
 
 export * from './builder';
-export * from './wallet-client';
-export * from './nft-client';
-export * from './stakeHelperFunctions';
 
 export { fromB64, toB64 } from '@mysten/bcs';
 

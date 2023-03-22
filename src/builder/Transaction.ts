@@ -127,6 +127,20 @@ export class Transaction {
   }
 
   /**
+   * Converts from a serialize transaction kind (built with `build({ onlyTransactionKind: true })`) to a `Transaction` class.
+   * Supports either a byte array, or base64-encoded bytes.
+   */
+  static fromKind(serialized: string | Uint8Array) {
+    const tx = new Transaction();
+
+    tx.#transactionData = TransactionDataBuilder.fromKindBytes(
+      typeof serialized === 'string' ? fromB64(serialized) : serialized,
+    );
+
+    return tx;
+  }
+
+  /**
    * Converts from a serialized transaction format to a `Transaction` class.
    * There are two supported serialized formats:
    * - A string returned from `Transaction#serialize`. The serialized format must be compatible, or it will throw an error.
@@ -162,6 +176,15 @@ export class Transaction {
   setSender(sender: string) {
     this.#transactionData.sender = sender;
   }
+  /**
+   * Sets the sender only if it has not already been set.
+   * This is useful for sponsored transaction flows where the sender may not be the same as the signer address.
+   */
+  setSenderIfNotSet(sender: string) {
+    if (!this.#transactionData.sender) {
+      this.#transactionData.sender = sender;
+    }
+  }
   setExpiration(expiration?: TransactionExpiration) {
     this.#transactionData.expiration = expiration;
   }
@@ -171,8 +194,11 @@ export class Transaction {
   setGasBudget(budget: number | bigint) {
     this.#transactionData.gasConfig.budget = String(budget);
   }
+  setGasOwner(owner: string) {
+    this.#transactionData.gasConfig.owner = owner;
+  }
   setGasPayment(payments: SuiObjectRef[]) {
-    if (payments.length > MAX_GAS_OBJECTS) {
+    if (payments.length >= MAX_GAS_OBJECTS) {
       throw new Error(
         `Payment objects exceed maximum amount ${MAX_GAS_OBJECTS}`,
       );
@@ -216,8 +242,14 @@ export class Transaction {
    */
   #input(type: 'object' | 'pure', value?: unknown) {
     const index = this.#transactionData.inputs.length;
-    // @ts-ignore
-    const input = create({kind: 'Input', value: typeof value === 'bigint' ? String(value) : value, index, type,},
+    const input = create(
+      {
+        kind: 'Input',
+        // bigints can't be serialized to JSON, so just string-convert them here:
+        value: typeof value === 'bigint' ? String(value) : value,
+        index,
+        type,
+      },
       TransactionInput,
     );
     this.#transactionData.inputs.push(input);
@@ -240,6 +272,10 @@ export class Transaction {
    * Add a new non-object input to the transaction.
    */
   pure(
+    /**
+     * The pure value that will be used as the input value. If this is a Uint8Array, then the value
+     * is assumed to be raw bytes, and will be used directly.
+     */
     value: unknown,
     /**
      * The BCS type to serialize the value into. If not provided, the type will automatically be determined
@@ -248,7 +284,14 @@ export class Transaction {
     type?: string,
   ) {
     // TODO: we can also do some deduplication here
-    return this.#input('pure', type ? Inputs.Pure(type, value) : value);
+    return this.#input(
+      'pure',
+      value instanceof Uint8Array
+        ? Inputs.Pure(value)
+        : type
+        ? Inputs.Pure(value, type)
+        : value,
+    );
   }
 
   /** Add a command to the transaction. */
@@ -260,8 +303,8 @@ export class Transaction {
 
   // Method shorthands:
 
-  splitCoin(...args: Parameters<(typeof Commands)['SplitCoin']>) {
-    return this.add(Commands.SplitCoin(...args));
+  splitCoins(...args: Parameters<(typeof Commands)['SplitCoins']>) {
+    return this.add(Commands.SplitCoins(...args));
   }
   mergeCoins(...args: Parameters<(typeof Commands)['MergeCoins']>) {
     return this.add(Commands.MergeCoins(...args));
@@ -316,8 +359,11 @@ export class Transaction {
 
   // The current default is just picking _all_ coins we can which may not be ideal.
   async #selectGasPayment(provider?: JsonRpcProvider) {
+    const gasOwner =
+      this.#transactionData.gasConfig.owner ?? this.#transactionData.sender;
+
     const coins = await expectProvider(provider).getCoins({
-      owner: this.#transactionData.sender!,
+      owner: gasOwner!,
       coinType: SUI_TYPE_ARG,
     });
 
@@ -338,7 +384,7 @@ export class Transaction {
 
         return !matchingInput;
       })
-      .slice(0, MAX_GAS_OBJECTS)
+      .slice(0, MAX_GAS_OBJECTS - 1)
       .map((coin) => ({
         objectId: coin.coinObjectId,
         digest: coin.digest,
@@ -357,7 +403,7 @@ export class Transaction {
    * so that it can be built into bytes.
    */
   async #prepare({ provider, onlyTransactionKind }: BuildOptions) {
-    if (!this.#transactionData.sender) {
+    if (!onlyTransactionKind && !this.#transactionData.sender) {
       throw new Error('Missing transaction sender');
     }
 
@@ -424,7 +470,7 @@ export class Transaction {
             objectsToResolve.push({ id: input.value, input });
           } else if (wellKnownEncoding.kind === 'pure') {
             // Pure encoding, so construct BCS bytes:
-            input.value = Inputs.Pure(wellKnownEncoding.type, input.value);
+            input.value = Inputs.Pure(input.value, wellKnownEncoding.type);
           } else {
             throw new Error('Unexpected input format.');
           }
@@ -476,14 +522,14 @@ export class Transaction {
             if (arg.kind !== 'Input') return;
             const input = inputs[arg.index];
             // Skip if the input is already resolved
-            if (is(input, BuilderCallArg)) return;
+            if (is(input.value, BuilderCallArg)) return;
 
             const inputValue = input.value;
 
             const serType = getPureSerializationType(param, inputValue);
 
             if (serType) {
-              input.value = Inputs.Pure(serType, inputValue);
+              input.value = Inputs.Pure(inputValue, serType);
               return;
             }
 
@@ -587,6 +633,14 @@ export class Transaction {
             overrides: { gasConfig: { budget: String(MAX_GAS), payment: [] } },
           }),
         });
+
+        if (dryRunResult.effects.status.status !== 'success') {
+          throw new Error(
+            'Dry run failed, could not automatically determine a budget',
+            // @ts-ignore
+            { cause: dryRunResult },
+          );
+        }
 
         const coinOverhead =
           GAS_OVERHEAD_PER_COIN *

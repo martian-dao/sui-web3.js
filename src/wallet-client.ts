@@ -184,7 +184,7 @@ export class WalletClient {
   ) {
     const keypair = suiAccount;
     const tx = new Transaction();
-    const coin = tx.splitCoin(tx.gas, tx.pure(amount));
+    const coin = tx.splitCoins(tx.gas, [tx.pure(amount)]);
     tx.transferObjects([coin], tx.pure(receiverAddress));
     const signer = new RawSigner(keypair, this.provider);
     return await signer.signAndExecuteTransaction({ transaction: tx });
@@ -247,12 +247,12 @@ export class WalletClient {
   }
 
   async getGasObjectsOwnedByAddress(address: string) {
-    const objects = await this.provider.getObjectsOwnedByAddress({
+    const objects = await this.provider.getOwnedObjects({
       owner: address,
       // @ts-ignore
       options: { showType: true, showContent: true, showOwner: true },
     });
-    return objects.filter((obj) => Coin.isSUI(obj));
+    return objects.data.filter((obj) => Coin.isCoin(obj));
   }
 
   async getGasObject(address: string) {
@@ -260,7 +260,8 @@ export class WalletClient {
     if (gasObj.length === 0) {
       throw new Error('Not Enough Gas');
     }
-    const gasObjId: ObjectId = gasObj[0].objectId;
+    const details = gasObj[0].details as SuiObjectData;
+    const gasObjId: ObjectId = details.objectId;
     return gasObjId;
   }
 
@@ -388,22 +389,23 @@ export class WalletClient {
 
   // Function to get an array of all the nfts (with required metadata) owned by an address
   async getNfts(address: SuiAddress) {
-    let objects = await this.provider.getObjectsOwnedByAddress({
+    let objects = await this.provider.getOwnedObjects({
       owner: address,
     });
 
-    const nfts = objects?.filter((obj) => !Coin.isCoin(obj));
+    const nfts = objects?.data.filter((obj) => !Coin.isCoin(obj));
     const nftsWithMetadataArray = [];
 
     await Promise.all(
-      nfts.map(async ({ objectId }) => {
-        const nftMeta = await this.getNftMetadata(objectId);
-        const originByteNft = await this.getOriginbyteNft(objectId);
+      nfts.map(async (nft) => {
+        const details = nft.details as SuiObjectData;
+        const nftMeta = await this.getNftMetadata(details.objectId);
+        const originByteNft = await this.getOriginbyteNft(details.objectId);
 
         const nftName =
           typeof nftMeta?.data?.name === 'string'
             ? nftMeta?.data?.name
-            : formatAddress(objectId);
+            : formatAddress(details.objectId);
         const displayTitle = originByteNft?.fields.name || nftName;
         const nftUrl = nftMeta?.data?.url;
 
@@ -415,7 +417,7 @@ export class WalletClient {
             nftMeta?.data?.description ||
             '',
           displayTitle,
-          objectId,
+          objectId: details.objectId,
         });
       }),
     );
