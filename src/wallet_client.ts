@@ -1,11 +1,7 @@
 import * as bip39 from '@scure/bip39';
 import * as english from '@scure/bip39/wordlists/english';
 import { Ed25519Keypair } from './cryptography/ed25519-keypair';
-import {
-  GetObjectDataResponse,
-  SuiAddress,
-  TransactionEffects,
-} from './types';
+import { GetObjectDataResponse, SuiAddress, TransactionEffects } from './types';
 import { JsonRpcProvider } from './providers/json-rpc-provider';
 import { Coin, SUI_TYPE_ARG } from './types/framework';
 import { RpcTxnDataSerializer } from './signers/txn-data-serializers/rpc-txn-data-serializer';
@@ -117,7 +113,21 @@ export class WalletClient {
         'hex'
       );
       // check if this account exists on Sui or not
-      const response = await this.provider.getObjectsOwnedByAddress(address);
+      // check if this account exists on Sui or not
+      let response: any;
+      try {
+        response = await this.provider.getObjectsOwnedByAddress(address);
+      } catch (err) {
+        response = undefined;
+      }
+      if (!response) {
+        accountMetaData.push({
+          derivationPath,
+          address: address.startsWith('0x') ? address : '0x' + address,
+          publicKey: publicKey.startsWith('0x') ? publicKey : '0x' + publicKey,
+        });
+        break;
+      }
       if (Object.keys(response).length !== 0 || i === 0) {
         accountMetaData.push({
           derivationPath,
