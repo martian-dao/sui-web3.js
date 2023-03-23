@@ -370,27 +370,27 @@ export class WalletClient {
 
   // Function to get the metadata of a an nft with the given object id
   async getNftMetadata(objectID: string) {
-    const data = await this.getObject(objectID);
+    const data = await this.getObject(objectID, {
+      showType: true,
+      showContent: true,
+      showOwner: true,
+      showPreviousTransaction: true,
+      showStorageRebate: true,
+      showDisplay: true,
+    });
 
-    const nftMeta = () => {
-      if (!data) return null;
+    if (!data) return null;
 
-      const { details } = data || {};
-      if (!is(details, SuiObjectData) || !data) return null;
-      const fields = getObjectFields(data);
-      if (!fields?.url) return null;
-      return {
-        description:
-          typeof fields.description === 'string' ? fields.description : null,
-        name: typeof fields.name === 'string' ? fields.name : null,
-        url: fields.url,
-      };
-    };
+    const { details } = data || {};
 
-    return {
-      ...data,
-      data: nftMeta(),
-    };
+    if (!is(details, SuiObjectData) || !data) return null;
+
+    const displayMeta =
+      typeof data.details === 'object' && 'display' in data.details
+        ? data.details.display
+        : undefined;
+
+    return displayMeta;
   }
 
   // Function to parge the ipfs url of nft metadata (same as we do with aptos nfts ipfs urls)
@@ -430,21 +430,9 @@ export class WalletClient {
         const nftMeta = await this.getNftMetadata(details.objectId);
         const originByteNft = await this.getOriginbyteNft(details.objectId);
 
-        const nftName =
-          typeof nftMeta?.data?.name === 'string'
-            ? nftMeta?.data?.name
-            : formatAddress(details.objectId);
-        const displayTitle = originByteNft?.fields.name || nftName;
-        const nftUrl = nftMeta?.data?.url;
-
         nftsWithMetadataArray.push({
-          name: originByteNft?.fields.name || nftName!,
-          src: originByteNft?.fields.url || nftUrl,
-          title:
-            originByteNft?.fields.description ||
-            nftMeta?.data?.description ||
-            '',
-          displayTitle,
+          nftMeta,
+          originByteNft,
           objectId: details.objectId,
         });
       }),
