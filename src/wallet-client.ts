@@ -245,7 +245,7 @@ export class WalletClient {
     if (gasObj.length === 0) {
       throw new Error('Not Enough Gas');
     }
-    const details = gasObj[0].details as SuiObjectData;
+    const details = gasObj[0].data as SuiObjectData;
     const gasObjId: ObjectId = details.objectId;
     return gasObjId;
   }
@@ -370,7 +370,7 @@ export class WalletClient {
 
   // Function to get the metadata of a an nft with the given object id
   async getNftMetadata(objectID: string) {
-    const data = await this.getObject(objectID, {
+    const objectData = await this.getObject(objectID, {
       showType: true,
       showContent: true,
       showOwner: true,
@@ -379,15 +379,15 @@ export class WalletClient {
       showDisplay: true,
     });
 
-    if (!data) return null;
+    if (!objectData) return null;
 
-    const { details } = data || {};
+    const { data } = objectData || {};
 
-    if (!is(details, SuiObjectData) || !data) return null;
+    if (!is(data, SuiObjectData) || !data) return null;
 
     const displayMeta =
-      typeof data.details === 'object' && 'display' in data.details
-        ? data.details.display
+      typeof data === 'object' && 'display' in data
+        ? data.display
         : undefined;
 
     return displayMeta;
@@ -426,7 +426,7 @@ export class WalletClient {
 
     await Promise.all(
       nfts.map(async (nft) => {
-        const details = nft.details as SuiObjectData;
+        const details = nft.data as SuiObjectData;
         const nftMeta = await this.getNftMetadata(details.objectId);
         const originByteNft = await this.getOriginbyteNft(details.objectId);
 

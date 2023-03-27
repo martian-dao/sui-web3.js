@@ -34,8 +34,7 @@ import {
   SuiObjectRef,
 } from './objects';
 
-// TODO: support u64
-export const EpochId = number();
+export const EpochId = string();
 
 export const SuiChangeEpoch = object({
   epoch: EpochId,
@@ -174,9 +173,10 @@ export const AuthorityQuorumSignInfo = object({
 export type AuthorityQuorumSignInfo = Infer<typeof AuthorityQuorumSignInfo>;
 
 export const GasCostSummary = object({
-  computationCost: number(),
-  storageCost: number(),
-  storageRebate: number(),
+  computationCost: string(),
+  storageCost: string(),
+  storageRebate: string(),
+  nonRefundableStorageFee: string(),
 });
 export type GasCostSummary = Infer<typeof GasCostSummary>;
 
@@ -197,6 +197,10 @@ export const OwnedObjectRef = object({
   reference: SuiObjectRef,
 });
 export type OwnedObjectRef = Infer<typeof OwnedObjectRef>;
+export const TransactionEffectsModifiedAtVersions = object({
+  objectId: ObjectId,
+  sequenceNumber: SequenceNumber,
+});
 
 export const TransactionEffects = object({
   // Eventually this will become union(literal('v1'), literal('v2'), ...)
@@ -206,6 +210,8 @@ export const TransactionEffects = object({
   status: ExecutionStatus,
   /** The epoch when this transaction was executed */
   executedEpoch: EpochId,
+  /** The version that every modified (mutated or deleted) object had before it was modified by this transaction. **/
+  modifiedAtVersions: optional(array(TransactionEffectsModifiedAtVersions)),
   gasUsed: GasCostSummary,
   /** The object references of the shared objects used in this transaction. Empty if no shared objects were used. */
   sharedObjects: optional(array(SuiObjectRef)),
@@ -242,12 +248,6 @@ export type TransactionEffects = Infer<typeof TransactionEffects>;
 export const TransactionEvents = array(SuiEvent);
 export type TransactionEvents = Infer<typeof TransactionEvents>;
 
-export const DryRunTransactionResponse = object({
-  effects: TransactionEffects,
-  events: TransactionEvents,
-});
-export type DryRunTransactionResponse = Infer<typeof DryRunTransactionResponse>;
-
 const ReturnValueType = tuple([array(number()), string()]);
 const MutableReferenceOutputType = tuple([
   SuiArgument,
@@ -267,8 +267,6 @@ export const DevInspectResults = object({
 });
 export type DevInspectResults = Infer<typeof DevInspectResults>;
 
-export type GatewayTxSeqNumber = number;
-
 export const GetTxnDigestsResponse = array(TransactionDigest);
 export type GetTxnDigestsResponse = Infer<typeof GetTxnDigestsResponse>;
 
@@ -286,7 +284,7 @@ export type TransactionFilter =
       };
     }
   | { InputObject: ObjectId }
-  | { MutatedObject: ObjectId }
+  | { ChangedObject: ObjectId }
   | { FromAddress: SuiAddress }
   | { ToAddress: SuiAddress };
 
@@ -420,6 +418,13 @@ export const PaginatedTransactionResponse = object({
 export type PaginatedTransactionResponse = Infer<
   typeof PaginatedTransactionResponse
 >;
+export const DryRunTransactionResponse = object({
+  effects: TransactionEffects,
+  events: TransactionEvents,
+  objectChanges: array(SuiObjectChange),
+  balanceChanges: array(BalanceChange),
+});
+export type DryRunTransactionResponse = Infer<typeof DryRunTransactionResponse>;
 
 /* -------------------------------------------------------------------------- */
 /*                              Helper functions                              */
@@ -530,21 +535,21 @@ export function getExecutionStatusGasSummary(
 
 export function getTotalGasUsed(
   data: SuiTransactionResponse | TransactionEffects,
-): number | undefined {
+): bigint | undefined {
   const gasSummary = getExecutionStatusGasSummary(data);
   return gasSummary
-    ? gasSummary.computationCost +
-        gasSummary.storageCost -
-        gasSummary.storageRebate
+    ? BigInt(gasSummary.computationCost) +
+        BigInt(gasSummary.storageCost) -
+        BigInt(gasSummary.storageRebate)
     : undefined;
 }
 
 export function getTotalGasUsedUpperBound(
   data: SuiTransactionResponse | TransactionEffects,
-): number | undefined {
+): bigint | undefined {
   const gasSummary = getExecutionStatusGasSummary(data);
   return gasSummary
-    ? gasSummary.computationCost + gasSummary.storageCost
+    ? BigInt(gasSummary.computationCost) + BigInt(gasSummary.storageCost)
     : undefined;
 }
 

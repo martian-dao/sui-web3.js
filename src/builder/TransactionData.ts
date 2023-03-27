@@ -85,7 +85,6 @@ export class TransactionDataBuilder {
     const serialized = create(
       {
         version: 1,
-        // @ts-ignore
         gasConfig: {},
         inputs: programmableTx.inputs.map((value: unknown, index: number) =>
           create(
@@ -136,7 +135,6 @@ export class TransactionDataBuilder {
       SerializedTransactionDataBuilder,
     );
 
-    // @ts-ignore
     return TransactionDataBuilder.restore(serialized);
   }
 
@@ -168,7 +166,6 @@ export class TransactionDataBuilder {
   constructor(clone?: TransactionDataBuilder) {
     this.sender = clone?.sender;
     this.expiration = clone?.expiration;
-    // @ts-ignore
     this.gasConfig = clone?.gasConfig ?? {};
     this.inputs = clone?.inputs ?? [];
     this.commands = clone?.commands ?? [];
@@ -255,7 +252,6 @@ export class TransactionDataBuilder {
   }
 
   snapshot(): SerializedTransactionDataBuilder {
-    // @ts-ignore
     return create(this, SerializedTransactionDataBuilder);
   }
 }
