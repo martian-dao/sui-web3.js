@@ -19,6 +19,7 @@ export class RPCError extends Error {
     data?: unknown;
     cause?: Error;
   }) {
+    // @ts-ignore
     super('RPC Error', { cause: options.cause });
 
     this.req = options.req;
@@ -38,6 +39,7 @@ export class RPCValidationError extends Error {
   }) {
     super(
       'RPC Validation Error: The response returned from RPC server does not match the TypeScript definition. This is likely because the SDK version is not compatible with the RPC server.',
+      // @ts-ignore
       { cause: options.cause },
     );
 

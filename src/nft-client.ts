@@ -92,10 +92,10 @@ const DisplayDomainRegex =
 export const NftParser: SuiObjectParser<NftRpcResponse, NftRaw> = {
   parser: (data, suiData, rpcResponse) => {
     if (
-      typeof rpcResponse.details === 'object' &&
-      'owner' in rpcResponse.details
+      typeof rpcResponse.data === 'object' &&
+      'owner' in rpcResponse.data
     ) {
-      const { owner } = rpcResponse.details;
+      const { owner } = rpcResponse.data;
 
       const matches = (suiData.content as SuiMoveObject).type.match(NftRegex);
       if (!matches) {
@@ -108,7 +108,7 @@ export const NftParser: SuiObjectParser<NftRpcResponse, NftRaw> = {
       return {
         owner,
         type: suiData.content?.dataType,
-        id: rpcResponse.details.objectId,
+        id: rpcResponse.data.objectId,
         packageObjectId,
         packageModule,
         packageModuleClassName,
@@ -122,12 +122,10 @@ export const NftParser: SuiObjectParser<NftRpcResponse, NftRaw> = {
   regex: NftRegex,
 };
 
-const isObjectExists = (o: SuiObjectResponse) => o.status === 'Exists';
-
 const isTypeMatchRegex = (d: SuiObjectResponse, regex: RegExp) => {
-  const { details } = d;
-  if (is(details, SuiObjectData)) {
-    const { content } = details;
+  const { data } = d;
+  if (is(data, SuiObjectData)) {
+    const { content } = data;
     if (content && 'type' in content) {
       return content.type.match(regex);
     }
@@ -168,7 +166,6 @@ export class NftClient {
 
   parseObjects = async (objects: SuiObjectResponse[]): Promise<NftRaw[]> => {
     const parsedObjects = objects
-      .filter(isObjectExists)
       .map((object) => {
         if (getObjectType(object)?.match(NftParser.regex)) {
           return NftParser.parser(
