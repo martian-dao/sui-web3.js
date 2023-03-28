@@ -245,7 +245,7 @@ export class WalletClient {
     if (gasObj.length === 0) {
       throw new Error('Not Enough Gas');
     }
-    const details = gasObj[0].data as SuiObjectData;
+    const details = gasObj[0].details as SuiObjectData;
     const gasObjId: ObjectId = details.objectId;
     return gasObjId;
   }
@@ -358,11 +358,19 @@ export class WalletClient {
   }
 
   // Function to get the object metadata of a given objectId
-  async getObject(objectId: string, options?: any) {
-    const normalizedObjId = normalizeSuiAddress(objectId);
+  async getObject(objectId: string) {
+    const normalizedObjId = objectId && normalizeSuiAddress(objectId);
     const objData = await this.provider.getObject({
-      id: normalizedObjId,
-      options,
+      id: normalizedObjId!,
+      options: {
+        showType: true,
+        showContent: true,
+        showOwner: true,
+        showDisplay: true,
+        showPreviousTransaction: false,
+        showStorageRebate: false,
+        showBcs: false,
+      },
     });
 
     return objData;
@@ -370,27 +378,22 @@ export class WalletClient {
 
   // Function to get the metadata of a an nft with the given object id
   async getNftMetadata(objectID: string) {
-    const objectData = await this.getObject(objectID, {
-      showType: true,
-      showContent: true,
-      showOwner: true,
-      showPreviousTransaction: true,
-      showStorageRebate: true,
-      showDisplay: true,
-    });
+    const data = await this.getObject(objectID);
 
-    if (!objectData) return null;
+    if (!data) return null;
 
-    const { data } = objectData || {};
+    if (!is(data, SuiObjectData) || !data.display) return null;
+    const { name, description, creator, img_url, link, project_url } =
+      data.display;
 
-    if (!is(data, SuiObjectData) || !data) return null;
-
-    const displayMeta =
-      typeof data === 'object' && 'display' in data
-        ? data.display
-        : undefined;
-
-    return displayMeta;
+    return {
+      name: name || null,
+      description: description || null,
+      imageUrl: img_url || null,
+      link: link || null,
+      projectUrl: project_url || null,
+      creator: creator || null,
+    };
   }
 
   // Function to parge the ipfs url of nft metadata (same as we do with aptos nfts ipfs urls)
@@ -398,42 +401,37 @@ export class WalletClient {
     return ipfsUrl.replace(/^ipfs:\/\//, 'https://ipfs.io/ipfs/');
   }
 
-  // Function to the get originbyte nft metadata for a given nft object id
-  async getOriginbyteNft(nftId: string) {
-    const client = new NftClient(this.provider);
-    const nfts = await client.getNftsById({ objectIds: [nftId!] });
-    const nft = nfts[0];
-    if (nft) {
-      return {
-        ...nft,
-        fields: {
-          ...nft.fields,
-          url: this.parseIpfsUrl(nft.fields?.url ?? ''),
-        },
-      };
-    }
-    return null;
-  }
-
   // Function to get an array of all the nfts (with required metadata) owned by an address
   async getNfts(address: SuiAddress) {
     let objects = await this.provider.getOwnedObjects({
       owner: address,
+      options: {
+        showType: true,
+        showDisplay: true,
+        showContent: false,
+        showBcs: false,
+        showOwner: false,
+        showPreviousTransaction: false,
+        showStorageRebate: false,
+      },
     });
 
-    const nfts = objects?.data.filter((obj) => !Coin.isCoin(obj));
+    const nfts = objects?.data
+      .filter(
+        ({ data }) =>
+          typeof data === 'object' && 'display' in data && data.display,
+      )
+      .map(({ data }) => data as SuiObjectData);
+
     const nftsWithMetadataArray = [];
 
     await Promise.all(
       nfts.map(async (nft) => {
-        const details = nft.data as SuiObjectData;
-        const nftMeta = await this.getNftMetadata(details.objectId);
-        const originByteNft = await this.getOriginbyteNft(details.objectId);
+        const nftMeta = await this.getNftMetadata(nft.objectId);
 
         nftsWithMetadataArray.push({
           nftMeta,
-          originByteNft,
-          objectId: details.objectId,
+          objectId: nft.objectId,
         });
       }),
     );
