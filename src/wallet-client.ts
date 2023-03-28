@@ -245,7 +245,7 @@ export class WalletClient {
     if (gasObj.length === 0) {
       throw new Error('Not Enough Gas');
     }
-    const details = gasObj[0].details as SuiObjectData;
+    const details = gasObj[0].data as SuiObjectData;
     const gasObjId: ObjectId = details.objectId;
     return gasObjId;
   }
