@@ -72,9 +72,9 @@ test('verify Import Wallet', async () => {
   expect(response.accounts.length).toBe(1);
 });
 
-test('verify transferSuiMnemonic', async () => {
+test('verify transferSui', async () => {
   const bobAccount = await apis.createWallet();
-  const txnHash = await apis.transferSuiMnemonic(
+  const txnHash = await apis.transferSui(
     1,
     aliceAccount,
     bobAccount.accounts[0].address,

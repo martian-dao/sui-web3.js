@@ -178,7 +178,7 @@ export class WalletClient {
     };
   }
 
-  async transferSuiMnemonic(
+  async transferSui(
     amount: number,
     suiAccount: Ed25519Keypair,
     receiverAddress: SuiAddress,
