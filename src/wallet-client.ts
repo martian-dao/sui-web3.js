@@ -175,7 +175,7 @@ export class WalletClient {
     };
   }
 
-  async transferSuiMnemonic(
+  async transferSui(
     amount: number,
     suiAccount: Ed25519Keypair,
     receiverAddress: SuiAddress,
@@ -282,6 +282,7 @@ export class WalletClient {
           limit: MAX_COINS_PER_REQUEST,
         },
       );
+
       if (!data || !data.length) {
         break;
       }
@@ -356,7 +357,7 @@ export class WalletClient {
 
     return txnData.sort(
       // timestamp could be null, so we need to handle
-      (a, b) => (a.timestampMs || 0) - (b.timestampMs || 0),
+      (a, b) => (b.timestampMs || 0) - (a.timestampMs || 0),
     );
   }
 
