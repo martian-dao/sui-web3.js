@@ -5,8 +5,8 @@ import * as Nacl from 'tweetnacl';
 import { SUI_TYPE_ARG } from './types';
 import { TransactionBlock } from './builder';
 
-const NODE_URL = 'http:/54.221.13.167:9000';
-const FAUCET_URL = 'http://54.221.13.167:5003/gas';
+const NODE_URL = 'http:/18.208.139.136:9000';
+const FAUCET_URL = 'http://18.208.139.136:5003/gas';
 
 let alice;
 let aliceAccount;
@@ -79,7 +79,6 @@ test('verify transferSuiMnemonic', async () => {
     aliceAccount,
     bobAccount.accounts[0].address,
   );
-  console.log(txnHash)
   const balance = await apis.getBalance(
     bobAccount.accounts[0].address,
     SUI_TYPE_ARG,
@@ -99,15 +98,14 @@ test('verify getCoinsWithRequiredBalance', async () => {
 });
 
 test('verify getCoins', async () => {
-  const coins = await apis.getCoins(aliceAccount.getPublicKey().toSuiAddress());
-  expect(coins.data.length).toBeGreaterThan(0);
+  const coins = await apis.getCoins(SUI_TYPE_ARG, aliceAccount.getPublicKey().toSuiAddress());
+  expect(coins.length).toBeGreaterThan(0);
 });
 
 test('verify getStake', async () => {
   const stakes = await apis.getStake(
     aliceAccount.getPublicKey().toSuiAddress(),
   );
-  console.log(stakes);
   expect(stakes.length).toBe(0);
 });
 
@@ -136,6 +134,5 @@ test('verify getNfts', async () => {
   const nfts = await apis.getNfts(
     aliceAccount.getPublicKey().toSuiAddress(),
   );
-  console.log(nfts);
   // expect(transactions.length).toBeGreaterThan(0);
 });
