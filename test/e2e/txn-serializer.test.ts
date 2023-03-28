@@ -9,22 +9,18 @@ import {
   isMutableSharedObjectInput,
   isSharedObjectInput,
   ObjectId,
-  SuiTransactionResponse,
+  SuiObjectData,
+  SuiTransactionBlockResponse,
   SUI_SYSTEM_STATE_OBJECT_ID,
-  Transaction,
+  TransactionBlock,
 } from '../../src';
-import { TransactionDataBuilder } from '../../src/builder/TransactionData';
-import {
-  DEFAULT_GAS_BUDGET,
-  publishPackage,
-  setup,
-  TestToolbox,
-} from './utils/setup';
+import { TransactionBlockDataBuilder } from '../../src/builder/TransactionBlockData';
+import { publishPackage, setup, TestToolbox } from './utils/setup';
 
 describe('Transaction Serialization and deserialization', () => {
   let toolbox: TestToolbox;
   let packageId: ObjectId;
-  let publishTxn: SuiTransactionResponse;
+  let publishTxn: SuiTransactionBlockResponse;
   let sharedObjectId: ObjectId;
 
   beforeAll(async () => {
@@ -37,19 +33,24 @@ describe('Transaction Serialization and deserialization', () => {
     sharedObjectId = getObjectId(sharedObject);
   });
 
-  async function serializeAndDeserialize(tx: Transaction, mutable: boolean[]) {
+  async function serializeAndDeserialize(
+    tx: TransactionBlock,
+    mutable: boolean[],
+  ) {
     tx.setSender(await toolbox.address());
-    tx.setGasBudget(DEFAULT_GAS_BUDGET);
-    const transactionBytes = await tx.build({ provider: toolbox.provider });
-    const deserializedTxnBuilder =
-      TransactionDataBuilder.fromBytes(transactionBytes);
+    const transactionBlockBytes = await tx.build({
+      provider: toolbox.provider,
+    });
+    const deserializedTxnBuilder = TransactionBlockDataBuilder.fromBytes(
+      transactionBlockBytes,
+    );
     expect(
       deserializedTxnBuilder.inputs
         .filter((i) => isSharedObjectInput(i.value))
         .map((i) => isMutableSharedObjectInput(i.value)),
     ).toStrictEqual(mutable);
     const reserializedTxnBytes = await deserializedTxnBuilder.build();
-    expect(reserializedTxnBytes).toEqual(transactionBytes);
+    expect(reserializedTxnBytes).toEqual(transactionBlockBytes);
   }
 
   it('Move Shared Object Call with mutable reference', async () => {
@@ -58,12 +59,13 @@ describe('Transaction Serialization and deserialization', () => {
     const [{ suiAddress: validatorAddress }] =
       await toolbox.getActiveValidators();
 
-    const tx = new Transaction();
+    const tx = new TransactionBlock();
+    const coin = coins[2].data as SuiObjectData;
     tx.moveCall({
-      target: '0x2::sui_system::request_add_stake',
+      target: '0x3::sui_system::request_add_stake',
       arguments: [
         tx.object(SUI_SYSTEM_STATE_OBJECT_ID),
-        tx.object(coins[2].objectId),
+        tx.object(coin.objectId),
         tx.pure(validatorAddress),
       ],
     });
@@ -71,7 +73,7 @@ describe('Transaction Serialization and deserialization', () => {
   });
 
   it('Move Shared Object Call with immutable reference', async () => {
-    const tx = new Transaction();
+    const tx = new TransactionBlock();
     tx.moveCall({
       target: `${packageId}::serializer_tests::value`,
       arguments: [tx.object(sharedObjectId)],
@@ -80,7 +82,7 @@ describe('Transaction Serialization and deserialization', () => {
   });
 
   it('Move Shared Object Call with mixed usage of mutable and immutable references', async () => {
-    const tx = new Transaction();
+    const tx = new TransactionBlock();
     tx.moveCall({
       target: `${packageId}::serializer_tests::value`,
       arguments: [tx.object(sharedObjectId)],

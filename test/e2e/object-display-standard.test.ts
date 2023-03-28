@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { ObjectId, getObjectDisplay } from '../../src';
+import { ObjectId, getObjectDisplay, SuiObjectData } from '../../src';
 import { publishPackage, setup, TestToolbox } from './utils/setup';
 
 describe('Test Object Display Standard', () => {
@@ -16,18 +16,24 @@ describe('Test Object Display Standard', () => {
   });
 
   it('Test getting Display fields', async () => {
-    const boarId = (
-      await toolbox.provider.getObjectsOwnedByAddress(
-        toolbox.address(),
-        `${packageId}::boars::Boar`,
-      )
-    )[0].objectId;
+    const resp = (
+      await toolbox.provider.getOwnedObjects({
+        owner: toolbox.address(),
+        options: { showDisplay: true, showType: true },
+        filter: { StructType: `${packageId}::boars::Boar` },
+      })
+    ).data;
+    const data = resp[0].data as SuiObjectData;
+    const boarId = data.objectId;
     const display = getObjectDisplay(
-      await toolbox.provider.getObject(boarId, { showDisplay: true }),
+      await toolbox.provider.getObject({
+        id: boarId,
+        options: { showDisplay: true },
+      }),
     );
     expect(display).toEqual({
       age: '10',
-      buyer: `0x${toolbox.address()}`,
+      buyer: toolbox.address(),
       creator: 'Chris',
       description: `Unique Boar from the Boars collection with First Boar and ${boarId}`,
       img_url: 'https://get-a-boar.com/first.png',
@@ -40,9 +46,14 @@ describe('Test Object Display Standard', () => {
   });
 
   it('Test getting Display fields for object that has no display object', async () => {
-    const coinId = (await toolbox.getGasObjectsOwnedByAddress())[0].objectId;
+    const coin = (await toolbox.getGasObjectsOwnedByAddress())[0]
+      .data as SuiObjectData;
+    const coinId = coin.objectId;
     const display = getObjectDisplay(
-      await toolbox.provider.getObject(coinId, { showDisplay: true }),
+      await toolbox.provider.getObject({
+        id: coinId,
+        options: { showDisplay: true },
+      }),
     );
     expect(display).toEqual(undefined);
   });
