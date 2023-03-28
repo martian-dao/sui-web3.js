@@ -283,6 +283,7 @@ export class WalletClient {
           limit: MAX_COINS_PER_REQUEST,
         },
       );
+
       if (!data || !data.length) {
         break;
       }
