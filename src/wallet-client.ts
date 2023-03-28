@@ -16,10 +16,7 @@ import {
   SuiAddress,
   SUI_TYPE_ARG,
 } from './types';
-import {
-  normalizeSuiAddress,
-  SuiObjectData,
-} from './types';
+import { normalizeSuiAddress, SuiObjectData } from './types';
 import { is } from './index';
 import { NftClient } from './nft-client';
 import { formatAddress } from './utils/format';
@@ -184,11 +181,13 @@ export class WalletClient {
     receiverAddress: SuiAddress,
   ) {
     const keypair = suiAccount;
-    const tx = new TransactionBlock()
+    const tx = new TransactionBlock();
     const coin = tx.splitCoins(tx.gas, [tx.pure(amount)]);
     tx.transferObjects([coin], tx.pure(receiverAddress));
     const signer = new RawSigner(keypair, this.provider);
-    return await signer.signAndExecuteTransactionBlock({ transactionBlock: tx });
+    return await signer.signAndExecuteTransactionBlock({
+      transactionBlock: tx,
+    });
   }
 
   async getBalance(address: string, typeArg: string = SUI_TYPE_ARG) {
@@ -315,7 +314,9 @@ export class WalletClient {
    * @param tx the transaction bytes in Uint8Array
    * @returns The transaction effects
    */
-  async dryRunTransaction(tx: Uint8Array): Promise<DryRunTransactionBlockResponse> {
+  async dryRunTransaction(
+    tx: Uint8Array,
+  ): Promise<DryRunTransactionBlockResponse> {
     return this.provider.dryRunTransactionBlock({ transactionBlock: tx });
   }
 
@@ -340,16 +341,20 @@ export class WalletClient {
       }),
     ]);
 
-    const transactionsData = await Promise.all(
-      [...txnIds.data, ...fromTxnIds.data].map(async (x) => {
-        const txnData = await this.provider.getTransactionBlock({
-          digest: x.digest,
-        });
-        return txnData;
-      }),
-    );
+    const txnData = await this.provider.multiGetTransactionBlocks({
+      digests: dedupe(
+        [...txnIds.data, ...fromTxnIds.data].map((x) => x.digest),
+      ),
+      options: {
+        showInput: true,
+        showEffects: true,
+        showEvents: true,
+        showObjectChanges: false,
+        showBalanceChanges: false,
+      },
+    });
 
-    return transactionsData.sort(
+    return txnData.sort(
       // timestamp could be null, so we need to handle
       (a, b) => (a.timestampMs || 0) - (b.timestampMs || 0),
     );
