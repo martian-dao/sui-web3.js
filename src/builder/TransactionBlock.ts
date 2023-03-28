@@ -571,6 +571,7 @@ export class TransactionBlock {
       const dedupedIds = [...new Set(objectsToResolve.map(({ id }) => id))];
       const objects = await expectProvider(provider).multiGetObjects({
         ids: dedupedIds,
+        // @ts-ignore
         options: { showOwner: true },
       });
       let objectsById = new Map(
@@ -630,6 +631,7 @@ export class TransactionBlock {
           provider,
         ).dryRunTransactionBlock({
           transactionBlock: this.#blockData.build({
+            // @ts-ignore
             overrides: { gasConfig: { budget: String(MAX_GAS), payment: [] } },
           }),
         });
@@ -637,6 +639,7 @@ export class TransactionBlock {
         if (dryRunResult.effects.status.status !== 'success') {
           throw new Error(
             'Dry run failed, could not automatically determine a budget',
+            // @ts-ignore
             { cause: dryRunResult },
           );
         }
