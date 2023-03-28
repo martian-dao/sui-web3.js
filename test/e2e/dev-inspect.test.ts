@@ -2,13 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { RawSigner, Transaction } from '../../src';
-import {
-  DEFAULT_GAS_BUDGET,
-  publishPackage,
-  setup,
-  TestToolbox,
-} from './utils/setup';
+import { RawSigner, SuiObjectData, TransactionBlock } from '../../src';
+import { publishPackage, setup, TestToolbox } from './utils/setup';
 
 describe('Test dev inspect', () => {
   let toolbox: TestToolbox;
@@ -20,11 +15,9 @@ describe('Test dev inspect', () => {
     ({ packageId } = await publishPackage(packagePath));
   });
 
-  // TODO: This is skipped because this fails currently.
-  it.skip('Dev inspect split + transfer', async () => {
-    const tx = new Transaction();
-    tx.setGasBudget(DEFAULT_GAS_BUDGET);
-    const coin = tx.splitCoin(tx.gas, tx.pure(10));
+  it('Dev inspect split + transfer', async () => {
+    const tx = new TransactionBlock();
+    const coin = tx.splitCoins(tx.gas, [tx.pure(10)]);
     tx.transferObjects([coin], tx.pure(toolbox.address()));
     await validateDevInspectTransaction(toolbox.signer, tx, 'success');
   });
@@ -32,12 +25,12 @@ describe('Test dev inspect', () => {
   it('Move Call that returns struct', async () => {
     const coins = await toolbox.getGasObjectsOwnedByAddress();
 
-    const tx = new Transaction();
-    tx.setGasBudget(DEFAULT_GAS_BUDGET);
+    const tx = new TransactionBlock();
+    const coin_0 = coins[0].data as SuiObjectData;
     const obj = tx.moveCall({
       target: `${packageId}::serializer_tests::return_struct`,
       typeArguments: ['0x2::coin::Coin<0x2::sui::SUI>'],
-      arguments: [tx.pure(coins[0].objectId)],
+      arguments: [tx.pure(coin_0.objectId)],
     });
 
     // TODO: Ideally dev inspect transactions wouldn't need this, but they do for now
@@ -47,8 +40,7 @@ describe('Test dev inspect', () => {
   });
 
   it('Move Call that aborts', async () => {
-    const tx = new Transaction();
-    tx.setGasBudget(DEFAULT_GAS_BUDGET);
+    const tx = new TransactionBlock();
     tx.moveCall({
       target: `${packageId}::serializer_tests::test_abort`,
       typeArguments: [],
@@ -61,9 +53,9 @@ describe('Test dev inspect', () => {
 
 async function validateDevInspectTransaction(
   signer: RawSigner,
-  txn: Transaction,
+  transactionBlock: TransactionBlock,
   status: 'success' | 'failure',
 ) {
-  const result = await signer.devInspectTransaction(txn);
+  const result = await signer.devInspectTransactionBlock({ transactionBlock });
   expect(result.effects.status.status).toEqual(status);
 }

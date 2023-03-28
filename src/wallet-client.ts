@@ -1,6 +1,6 @@
 import * as bip39 from '@scure/bip39';
 import * as english from '@scure/bip39/wordlists/english';
-import { Transaction } from './builder';
+import { TransactionBlock, Transactions } from './builder';
 import { Ed25519Keypair } from './cryptography/ed25519-keypair';
 // import { NftClient } from './nft_client';
 import { JsonRpcProvider } from '.';
@@ -10,7 +10,7 @@ import { RawSigner } from './signers/raw-signer';
 import {
   Coin,
   CoinStruct,
-  DryRunTransactionResponse,
+  DryRunTransactionBlockResponse,
   ObjectId,
   PaginatedCoins,
   SuiAddress,
@@ -19,8 +19,6 @@ import {
 import {
   normalizeSuiAddress,
   SuiObjectData,
-  getObjectFields,
-  SuiValidatorSummary,
 } from './types';
 import { is } from './index';
 import { NftClient } from './nft-client';
@@ -47,7 +45,7 @@ export interface Wallet {
 
 export class WalletClient {
   provider: JsonRpcProvider;
-  // nftClient: NftClient;
+  nftClient: NftClient;
 
   constructor(nodeUrl: string, faucetUrl: string) {
     this.provider = new JsonRpcProvider(
@@ -60,7 +58,7 @@ export class WalletClient {
         socketOptions: DEFAULT_CLIENT_OPTIONS,
       },
     );
-    // this.nftClient = new NftClient(this.provider);
+    this.nftClient = new NftClient(this.provider);
   }
 
   /**
@@ -186,11 +184,11 @@ export class WalletClient {
     receiverAddress: SuiAddress,
   ) {
     const keypair = suiAccount;
-    const tx = new Transaction();
+    const tx = new TransactionBlock()
     const coin = tx.splitCoins(tx.gas, [tx.pure(amount)]);
     tx.transferObjects([coin], tx.pure(receiverAddress));
     const signer = new RawSigner(keypair, this.provider);
-    return await signer.signAndExecuteTransaction({ transaction: tx });
+    return await signer.signAndExecuteTransactionBlock({ transactionBlock: tx });
   }
 
   async getBalance(address: string, typeArg: string = SUI_TYPE_ARG) {
@@ -317,25 +315,25 @@ export class WalletClient {
    * @param tx the transaction bytes in Uint8Array
    * @returns The transaction effects
    */
-  async dryRunTransaction(tx: Uint8Array): Promise<DryRunTransactionResponse> {
-    return this.provider.dryRunTransaction({ transaction: tx });
+  async dryRunTransaction(tx: Uint8Array): Promise<DryRunTransactionBlockResponse> {
+    return this.provider.dryRunTransactionBlock({ transactionBlock: tx });
   }
 
   async simulateTransaction(
     tx: Uint8Array,
-  ): Promise<DryRunTransactionResponse> {
+  ): Promise<DryRunTransactionBlockResponse> {
     return await this.dryRunTransaction(tx);
   }
 
   async getTransactions(address: SuiAddress) {
     // combine from and to transactions
     const [txnIds, fromTxnIds] = await Promise.all([
-      this.provider.queryTransactions({
+      this.provider.queryTransactionBlocks({
         filter: {
           ToAddress: address!,
         },
       }),
-      this.provider.queryTransactions({
+      this.provider.queryTransactionBlocks({
         filter: {
           FromAddress: address!,
         },
@@ -344,7 +342,7 @@ export class WalletClient {
 
     const transactionsData = await Promise.all(
       [...txnIds.data, ...fromTxnIds.data].map(async (x) => {
-        const txnData = await this.provider.getTransaction({
+        const txnData = await this.provider.getTransactionBlock({
           digest: x.digest,
         });
         return txnData;

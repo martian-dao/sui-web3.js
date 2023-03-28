@@ -89,7 +89,7 @@
     "wait-on": "^7.0.1"
   },
   "dependencies": {
-    "@mysten/bcs": "file:mysten-bcs-0.6.1.tgz",
+    "@mysten/bcs": "0.7.0",
     "@noble/hashes": "^1.2.0",
     "@noble/secp256k1": "^1.7.1",
     "@scure/bip32": "^1.1.5",

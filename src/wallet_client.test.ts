@@ -3,7 +3,7 @@
 import { WalletClient } from './wallet-client';
 import * as Nacl from 'tweetnacl';
 import { SUI_TYPE_ARG } from './types';
-import { Transaction } from './builder';
+import { TransactionBlock } from './builder';
 
 const NODE_URL = 'http:/54.221.13.167:9000';
 const FAUCET_URL = 'http://54.221.13.167:5003/gas';
@@ -113,7 +113,7 @@ test('verify getStake', async () => {
 
 test('verify simulateTransaction', async () => {
   const bobAccount = await apis.createWallet();
-  const txn = new Transaction();
+  const txn = new TransactionBlock();
   const coin = txn.splitCoins(txn.gas, [txn.pure(1)]);
 
   txn.transferObjects([coin], txn.pure(bobAccount.accounts[0].address));
