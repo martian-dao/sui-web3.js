@@ -1,10 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import fetch from 'isomorphic-fetch';
 import { FaucetResponse, SuiAddress } from '../types';
 import { FaucetRateLimitError } from '../utils/errors';
 import { HttpHeaders } from './client';
-import fetch from 'isomorphic-fetch';
 
 export async function requestSuiFromFaucet(
   endpoint: string,

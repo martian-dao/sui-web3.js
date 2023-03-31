@@ -45,6 +45,20 @@ export class RPCValidationError extends Error {
 
     this.req = options.req;
     this.result = options.result;
+    this.message = this.toString();
+  }
+
+  toString() {
+    let str = super.toString();
+    // @ts-ignore
+    if (this.cause) {
+      // @ts-ignore
+      str += `\nCause: ${this.cause}`;
+    }
+    if (this.result) {
+      str += `\nReponse Received: ${JSON.stringify(this.result, null, 2)}`;
+    }
+    return str;
   }
 }
 
