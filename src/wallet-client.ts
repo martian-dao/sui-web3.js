@@ -116,9 +116,22 @@ export class WalletClient {
         'hex',
       );
       // check if this account exists on Sui or not
-      const response = await this.provider.getAllBalances({
-        owner: address,
-      });
+      let response: any;
+      try {
+        response = await this.provider.getAllBalances({
+          owner: address,
+        });
+      } catch (err) {
+        response = undefined;
+      }
+      if (!response) {
+        accountMetaData.push({
+          derivationPath,
+          address: address.startsWith('0x') ? address : '0x' + address,
+          publicKey: publicKey.startsWith('0x') ? publicKey : '0x' + publicKey,
+        });
+        break;
+      }
       if (Object.keys(response).length !== 0 || i === 0) {
         accountMetaData.push({
           derivationPath,
