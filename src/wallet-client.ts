@@ -416,7 +416,7 @@ export class WalletClient {
     return {
       name: name || null,
       description: description || null,
-      imageUrl: image_url || img_url || null,
+      imageUrl: image_url || null,
       link: link || null,
       projectUrl: project_url || null,
       creator: creator || null,
