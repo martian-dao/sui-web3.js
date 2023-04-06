@@ -135,6 +135,7 @@ export class TransactionBlockDataBuilder {
       },
       SerializedTransactionDataBuilder,
     );
+
     // @ts-ignore
     return TransactionBlockDataBuilder.restore(serialized);
   }
@@ -164,7 +165,7 @@ export class TransactionBlockDataBuilder {
   inputs: TransactionBlockInput[];
   transactions: TransactionType[];
 
-  constructor(clone?: TransactionBlockDataBuilder) {
+  constructor(clone?: SerializedTransactionDataBuilder) {
     this.sender = clone?.sender;
     this.expiration = clone?.expiration;
     // @ts-ignore

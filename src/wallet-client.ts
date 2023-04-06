@@ -11,6 +11,7 @@ import {
   Coin,
   CoinStruct,
   DryRunTransactionBlockResponse,
+  getObjectDisplay,
   ObjectId,
   PaginatedCoins,
   SuiAddress,
@@ -395,11 +396,13 @@ export class WalletClient {
 
   // Function to get the metadata of a an nft with the given object id
   async getNftMetadata(objectID: string) {
-    const data = await this.getObject(objectID);
+    const resp = await this.getObject(objectID);
 
-    if (!data) return null;
+    if (!resp) return null;
+    if (!resp.data) return null;
 
-    if (!is(data, SuiObjectData) || !data.display) return null;
+    const display = getObjectDisplay(resp);
+
     const {
       name,
       description,
@@ -408,7 +411,7 @@ export class WalletClient {
       image_url,
       link,
       project_url,
-    } = data.display;
+    } = display.data;
 
     return {
       name: name || null,
