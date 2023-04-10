@@ -52,7 +52,7 @@ export class WalletClient {
         faucet: faucetUrl,
       }),
       {
-        skipDataValidation: false,
+        skipDataValidation: true,
         socketOptions: DEFAULT_CLIENT_OPTIONS,
       },
     );
