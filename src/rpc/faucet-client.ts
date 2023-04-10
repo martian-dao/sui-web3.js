@@ -4,6 +4,7 @@
 import { FaucetResponse, SuiAddress } from '../types';
 import { FaucetRateLimitError } from '../utils/errors';
 import { HttpHeaders } from './client';
+import fetch from 'isomorphic-fetch';
 
 export async function requestSuiFromFaucet(
   endpoint: string,
