@@ -231,7 +231,7 @@ export class WalletClient {
 
     const coinsNeeded = await this.provider.getCoins(input);
     const coins: ObjectId[] = coinsNeeded.data
-      .map((coin) => (coin.balance >= amount ? coin.coinObjectId : undefined))
+      .map((coin) => (coin.balance && parseInt(coin.balance) >= amount ? coin.coinObjectId : undefined))
       .filter((d) => d);
     return coins;
   }
@@ -371,7 +371,7 @@ export class WalletClient {
 
     return txnData.sort(
       // timestamp could be null, so we need to handle
-      (a, b) => (b.timestampMs || 0) - (a.timestampMs || 0),
+      (a, b) => parseInt(b.timestampMs || '0') - parseInt(a.timestampMs || '0'),
     );
   }
 
@@ -525,9 +525,15 @@ export class WalletClient {
   async getTimeBeforeEpochNumber(epoch: number) {
     const data = await this.getSystemState();
     // Current epoch
-    const currentEpoch = data?.epoch || 0;
-    const currentEpochStartTime = data?.epochStartTimestampMs || 0;
-    const epochPeriod = data?.epochDurationMs || 0;
+    let currentEpoch: string | number = data?.epoch || '0';
+    let currentEpochStartTime: string | number =
+      data?.epochStartTimestampMs || '0';
+    let epochPeriod: string | number = data?.epochDurationMs || '0';
+
+    currentEpoch = parseInt(currentEpoch);
+    currentEpochStartTime = parseInt(currentEpochStartTime);
+    epochPeriod = parseInt(epochPeriod);
+
     const timeBeforeSpecifiedEpoch =
       epoch > currentEpoch && epoch > 0 && epochPeriod > 0
         ? currentEpochStartTime + (epoch - currentEpoch) * epochPeriod
