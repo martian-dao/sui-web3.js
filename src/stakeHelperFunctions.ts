@@ -30,8 +30,8 @@ export function calculateAPY(
   } = validator;
 
   // If the staking pool is active then we calculate its APY. Or if staking started in epoch 0
-  if (stakingPoolActivationEpoch || stakingPoolActivationEpoch === 0) {
-    const numEpochsParticipated = epoch - stakingPoolActivationEpoch;
+  if (stakingPoolActivationEpoch || parseInt(stakingPoolActivationEpoch) === 0) {
+    const numEpochsParticipated = epoch - parseInt(stakingPoolActivationEpoch);
     apy =
       Math.pow(
         1 + (+stakingPoolSuiBalance - +poolTokenBalance) / +poolTokenBalance,
