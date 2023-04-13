@@ -231,7 +231,11 @@ export class WalletClient {
 
     const coinsNeeded = await this.provider.getCoins(input);
     const coins: ObjectId[] = coinsNeeded.data
-      .map((coin) => (coin.balance && parseInt(coin.balance) >= amount ? coin.coinObjectId : undefined))
+      .map((coin) =>
+        coin.balance && parseInt(coin.balance) >= amount
+          ? coin.coinObjectId
+          : undefined,
+      )
       .filter((d) => d);
     return coins;
   }
@@ -403,15 +407,12 @@ export class WalletClient {
 
     const display = getObjectDisplay(resp);
 
-    const {
-      name,
-      description,
-      creator,
-      img_url,
-      image_url,
-      link,
-      project_url,
-    } = display.data;
+    if (!display.data) {
+      return null;
+    }
+
+    const { name, description, creator, image_url, link, project_url } =
+      display.data;
 
     return {
       name: name || null,
@@ -455,6 +456,8 @@ export class WalletClient {
     await Promise.all(
       nfts.map(async (nft) => {
         const nftMeta = await this.getNftMetadata(nft.objectId);
+
+        if (!nftMeta) return;
 
         nftsWithMetadataArray.push({
           nftMeta,
