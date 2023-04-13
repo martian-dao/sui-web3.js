@@ -457,6 +457,8 @@ export class WalletClient {
       nfts.map(async (nft) => {
         const nftMeta = await this.getNftMetadata(nft.objectId);
 
+        if (!nftMeta) return;
+
         nftsWithMetadataArray.push({
           nftMeta,
           objectId: nft.objectId,
