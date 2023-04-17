@@ -135,6 +135,7 @@ export class TransactionBlockDataBuilder {
       },
       SerializedTransactionDataBuilder,
     );
+
     // @ts-ignore
     return TransactionBlockDataBuilder.restore(serialized);
   }
