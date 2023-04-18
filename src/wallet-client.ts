@@ -261,14 +261,22 @@ export class WalletClient {
     const objects = await this.provider.getAllCoins({
       owner: address,
     });
-    const coinIds = objects.data.map((c) => ({
-      Id: c.coinObjectId,
-      symbol: Coin.getCoinSymbol(c.coinType),
-      name: Coin.getCoinSymbol(c.coinType),
-      balance: Number(c.balance),
-      decimals: 9,
-      coinTypeArg: c.coinType,
-    }));
+    const coinIds = await Promise.all(
+      objects.data.map(async (c) => {
+        const coinData = await this.provider.getCoinMetadata({
+          coinType: c.coinType,
+        });
+        return {
+          Id: c.coinObjectId,
+          symbol: Coin.getCoinSymbol(c.coinType),
+          name: Coin.getCoinSymbol(c.coinType),
+          balance: Number(c.balance),
+          decimals: coinData.decimals,
+          iconUrl: coinData.iconUrl,
+          coinTypeArg: c.coinType,
+        };
+      }),
+    );
     return coinIds;
   }
 
