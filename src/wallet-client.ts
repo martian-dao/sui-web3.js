@@ -5,7 +5,6 @@ import { Ed25519Keypair } from './cryptography/ed25519-keypair';
 // import { NftClient } from './nft_client';
 import { JsonRpcProvider } from '.';
 import { Connection } from './rpc/connection';
-import { DEFAULT_CLIENT_OPTIONS } from './rpc/websocket-client';
 import { RawSigner } from './signers/raw-signer';
 import {
   Coin,
@@ -18,15 +17,12 @@ import {
   SUI_TYPE_ARG,
 } from './types';
 import { normalizeSuiAddress, SuiObjectData } from './types';
-import { is } from './index';
 import { NftClient } from './nft-client';
-import { formatAddress } from './utils/format';
 import { calculateAPY, calculateStakeShare } from './stakeHelperFunctions';
 
 const COIN_TYPE = 784;
 const MAX_ACCOUNTS = 20;
 const MAX_COINS_PER_REQUEST = 100;
-const DEFAULT_GAS_BUDGET_FOR_SUI_TRANSFER = 1000;
 
 const dedupe = (arr: string[]) => Array.from(new Set(arr));
 
@@ -51,10 +47,6 @@ export class WalletClient {
         fullnode: nodeUrl,
         faucet: faucetUrl,
       }),
-      {
-        skipDataValidation: true,
-        socketOptions: DEFAULT_CLIENT_OPTIONS,
-      },
     );
     this.nftClient = new NftClient(this.provider);
   }
@@ -269,14 +261,22 @@ export class WalletClient {
     const objects = await this.provider.getAllCoins({
       owner: address,
     });
-    const coinIds = objects.data.map((c) => ({
-      Id: c.coinObjectId,
-      symbol: Coin.getCoinSymbol(c.coinType),
-      name: Coin.getCoinSymbol(c.coinType),
-      balance: Number(c.balance),
-      decimals: 9,
-      coinTypeArg: c.coinType,
-    }));
+    const coinIds = await Promise.all(
+      objects.data.map(async (c) => {
+        const coinData = await this.provider.getCoinMetadata({
+          coinType: c.coinType,
+        });
+        return {
+          Id: c.coinObjectId,
+          symbol: Coin.getCoinSymbol(c.coinType),
+          name: Coin.getCoinSymbol(c.coinType),
+          balance: Number(c.balance),
+          decimals: coinData.decimals,
+          iconUrl: coinData.iconUrl,
+          coinTypeArg: c.coinType,
+        };
+      }),
+    );
     return coinIds;
   }
 

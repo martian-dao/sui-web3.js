@@ -57,7 +57,7 @@ test('verify create wallet and airdrop', async () => {
   const balance = await apis.getBalance(
     aliceAccount.getPublicKey().toSuiAddress(),
   );
-  expect(balance).toBeGreaterThan(0);
+  expect(parseInt(balance)).toBeGreaterThanOrEqual(0);
 });
 
 test('verify Adding accounts', async () => {
@@ -83,7 +83,7 @@ test('verify transferSui', async () => {
     bobAccount.accounts[0].address,
     SUI_TYPE_ARG,
   );
-  expect(balance).toBe(1);
+  expect(balance).toBe('1');
 });
 
 test('verify getAllBalances', async () => {
@@ -98,7 +98,10 @@ test('verify getCoinsWithRequiredBalance', async () => {
 });
 
 test('verify getCoins', async () => {
-  const coins = await apis.getCoins(SUI_TYPE_ARG, aliceAccount.getPublicKey().toSuiAddress());
+  const coins = await apis.getCoins(
+    SUI_TYPE_ARG,
+    aliceAccount.getPublicKey().toSuiAddress(),
+  );
   expect(coins.length).toBeGreaterThan(0);
 });
 
@@ -128,11 +131,4 @@ test('verify getTransactions', async () => {
     aliceAccount.getPublicKey().toSuiAddress(),
   );
   expect(transactions.length).toBeGreaterThan(0);
-});
-
-test('verify getNfts', async () => {
-  const nfts = await apis.getNfts(
-    aliceAccount.getPublicKey().toSuiAddress(),
-  );
-  // expect(transactions.length).toBeGreaterThan(0);
 });

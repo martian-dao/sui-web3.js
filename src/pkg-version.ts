@@ -1,4 +1,4 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-export const pkgVersion = '0.1.6';
+export const pkgVersion = '0.1.8';

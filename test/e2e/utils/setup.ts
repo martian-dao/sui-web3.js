@@ -10,7 +10,6 @@ import {
   getPublishedObjectChanges,
   getExecutionStatusType,
   JsonRpcProvider,
-  fromB64,
   localnetConnection,
   Connection,
   Coin,
@@ -20,8 +19,8 @@ import {
   assert,
   SuiAddress,
   ObjectId,
-  normalizeSuiObjectId,
   FaucetRateLimitError,
+  UpgradePolicy,
 } from '../../../src';
 import { retry } from 'ts-retry-promise';
 
@@ -36,7 +35,7 @@ export const DEFAULT_RECIPIENT =
   '0x0c567ffdf8162cb6d51af74be0199443b92e823d4ba6ced24de5c6c463797d46';
 export const DEFAULT_RECIPIENT_2 =
   '0xbb967ddbebfee8c40d8fdd2c24cb02452834cd3a7061d18564448f900eb9e66d';
-export const DEFAULT_GAS_BUDGET = 10000;
+export const DEFAULT_GAS_BUDGET = 10000000;
 export const DEFAULT_SEND_AMOUNT = 1000;
 
 export class TestToolbox {
@@ -78,9 +77,7 @@ export function getProvider(): JsonRpcProvider {
       fullnode: DEFAULT_FULLNODE_URL,
       faucet: DEFAULT_FAUCET_URL,
     }),
-    {
-      skipDataValidation: false,
-    },
+    {},
   );
 }
 
@@ -114,22 +111,17 @@ export async function publishPackage(
 
   const tmpobj = tmp.dirSync({ unsafeCleanup: true });
 
-  const compiledModulesAndDeps = JSON.parse(
+  const { modules, dependencies } = JSON.parse(
     execSync(
       `${SUI_BIN} move build --dump-bytecode-as-base64 --path ${packagePath} --install-dir ${tmpobj.name}`,
       { encoding: 'utf-8' },
     ),
   );
   const tx = new TransactionBlock();
-  // TODO: Publish dry runs fail currently, so we need to set a gas budget:
-  tx.setGasBudget(10000);
-
-  const cap = tx.publish(
-    compiledModulesAndDeps.modules.map((m: any) => Array.from(fromB64(m))),
-    compiledModulesAndDeps.dependencies.map((addr: string) =>
-      normalizeSuiObjectId(addr),
-    ),
-  );
+  const cap = tx.publish({
+    modules,
+    dependencies,
+  });
 
   // Transfer the upgrade capability to the sender so they can upgrade the package later if they want.
   tx.transferObjects([cap], tx.pure(await toolbox.signer.getAddress()));
@@ -146,14 +138,69 @@ export async function publishPackage(
   const packageId = getPublishedObjectChanges(publishTxn)[0].packageId.replace(
     /^(0x)(0+)/,
     '0x',
-  );
-  expect(packageId).toBeTruthy();
+  ) as string;
+
+  expect(packageId).toBeTypeOf('string');
 
   console.info(
     `Published package ${packageId} from address ${await toolbox.signer.getAddress()}}`,
   );
 
   return { packageId, publishTxn };
+}
+
+export async function upgradePackage(
+  packageId: ObjectId,
+  capId: ObjectId,
+  packagePath: string,
+  toolbox?: TestToolbox,
+) {
+  // TODO: We create a unique publish address per publish, but we really could share one for all publishes.
+  if (!toolbox) {
+    toolbox = await setup();
+  }
+
+  // remove all controlled temporary objects on process exit
+  tmp.setGracefulCleanup();
+
+  const tmpobj = tmp.dirSync({ unsafeCleanup: true });
+
+  const { modules, dependencies, digest } = JSON.parse(
+    execSync(
+      `${SUI_BIN} move build --dump-bytecode-as-base64 --path ${packagePath} --install-dir ${tmpobj.name}`,
+      { encoding: 'utf-8' },
+    ),
+  );
+
+  const tx = new TransactionBlock();
+
+  const cap = tx.object(capId);
+  const ticket = tx.moveCall({
+    target: '0x2::package::authorize_upgrade',
+    arguments: [cap, tx.pure(UpgradePolicy.COMPATIBLE), tx.pure(digest)],
+  });
+
+  const receipt = tx.upgrade({
+    modules,
+    dependencies,
+    packageId,
+    ticket,
+  });
+
+  tx.moveCall({
+    target: '0x2::package::commit_upgrade',
+    arguments: [cap, receipt],
+  });
+
+  const result = await toolbox.signer.signAndExecuteTransactionBlock({
+    transactionBlock: tx,
+    options: {
+      showEffects: true,
+      showObjectChanges: true,
+    },
+  });
+
+  expect(getExecutionStatusType(result)).toEqual('success');
 }
 
 export function getRandomAddresses(n: number): SuiAddress[] {
@@ -165,7 +212,6 @@ export function getRandomAddresses(n: number): SuiAddress[] {
     });
 }
 
-// TODO: shall we move the transaction builder part to Transaction.ts?
 export async function paySui(
   signer: RawSigner,
   numRecipients: number = 1,

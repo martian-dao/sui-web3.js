@@ -10,7 +10,7 @@ import {
 } from '../../src';
 import { setup, TestToolbox } from './utils/setup';
 
-const DEFAULT_STAKED_AMOUNT = 1;
+const DEFAULT_STAKE_AMOUNT = 1000000000;
 
 describe('Governance API', () => {
   let toolbox: TestToolbox;
@@ -43,7 +43,9 @@ describe('Governance API', () => {
   });
 
   it('test getCommitteeInfo', async () => {
-    const committeeInfo = await toolbox.provider.getCommitteeInfo({ epoch: 0 });
+    const committeeInfo = await toolbox.provider.getCommitteeInfo({
+      epoch: '0',
+    });
     expect(committeeInfo.validators?.length).greaterThan(0);
   });
 
@@ -64,7 +66,7 @@ async function addStake(signer: RawSigner) {
   const tx = await SuiSystemStateUtil.newRequestAddStakeTxn(
     signer.provider,
     [coins.data[0].coinObjectId],
-    BigInt(DEFAULT_STAKED_AMOUNT),
+    BigInt(DEFAULT_STAKE_AMOUNT),
     validators[0].suiAddress,
   );
 
