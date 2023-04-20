@@ -261,11 +261,31 @@ export class WalletClient {
     const objects = await this.provider.getAllCoins({
       owner: address,
     });
-    const coinIds = await Promise.all(
+    let coinIds = await Promise.all(
       objects.data.map(async (c) => {
-        const coinData = await this.provider.getCoinMetadata({
-          coinType: c.coinType,
-        });
+        let coinData;
+
+        try {
+          coinData = await this.provider.getCoinMetadata({
+            coinType: c.coinType,
+          });
+        } catch (getCoinErr) {
+          console.warn('[SDK]', getCoinErr);
+        }
+
+        if (!coinData && c.coinType !== SUI_TYPE_ARG) return;
+        if (!coinData && c.coinType === SUI_TYPE_ARG) {
+          return {
+            Id: c.coinObjectId,
+            symbol: Coin.getCoinSymbol(c.coinType),
+            name: Coin.getCoinSymbol(c.coinType),
+            balance: Number(c.balance),
+            decimals: 9,
+            iconUrl: null,
+            coinTypeArg: c.coinType,
+          };
+        }
+
         return {
           Id: c.coinObjectId,
           symbol: Coin.getCoinSymbol(c.coinType),
@@ -277,6 +297,10 @@ export class WalletClient {
         };
       }),
     );
+
+    // removing any undefined/null values
+    coinIds = coinIds.filter((d) => d);
+
     return coinIds;
   }
 
