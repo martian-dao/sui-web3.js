@@ -1,6 +1,6 @@
 import * as bip39 from '@scure/bip39';
 import * as english from '@scure/bip39/wordlists/english';
-import { TransactionBlock, Transactions } from './builder';
+import { TransactionBlock } from './builder';
 import { Ed25519Keypair } from './cryptography/ed25519-keypair';
 // import { NftClient } from './nft_client';
 import { JsonRpcProvider } from '.';
@@ -14,6 +14,7 @@ import {
   ObjectId,
   PaginatedCoins,
   SuiAddress,
+  SuiTransactionBlockResponse,
   SUI_TYPE_ARG,
 } from './types';
 import { normalizeSuiAddress, SuiObjectData } from './types';
@@ -222,7 +223,7 @@ export class WalletClient {
     if (limit) input.limit = limit;
 
     const coinsNeeded = await this.provider.getCoins(input);
-    const coins: ObjectId[] = coinsNeeded.data
+    const coins: (ObjectId | undefined)[] = coinsNeeded.data
       .map((coin) =>
         coin.balance && parseInt(coin.balance) >= amount
           ? coin.coinObjectId
@@ -372,7 +373,7 @@ export class WalletClient {
   async getTransactions(
     address: SuiAddress,
     limit: number = 50,
-    cursor: string = undefined,
+    cursor: string | undefined = undefined,
   ) {
     // combine from and to transactions
     const [txnIds, fromTxnIds] = await Promise.all([
@@ -405,7 +406,7 @@ export class WalletClient {
     ]);
 
     const inserted = new Map();
-    const uniqueList = [];
+    const uniqueList: SuiTransactionBlockResponse[] = [];
 
     [...txnIds.data, ...fromTxnIds.data]
       .sort((a, b) => Number(b.timestampMs ?? 0) - Number(a.timestampMs ?? 0))
@@ -468,6 +469,13 @@ export class WalletClient {
     return ipfsUrl.replace(/^ipfs:\/\//, 'https://ipfs.io/ipfs/');
   }
 
+  async getKioskNfts(kioskId: ObjectId) {
+    const kiosk = await this.provider.getDynamicFields({ parentId: kioskId });
+    return kiosk.data
+      .filter((item) => item.name.type === '0x2::kiosk::Item')
+      .map((item) => ({ kioskId, nft: item.name.value.id }));
+  }
+
   // Function to get an array of all the nfts (with required metadata) owned by an address
   async getNfts(address: SuiAddress) {
     let objects = await this.provider.getOwnedObjects({
@@ -475,13 +483,23 @@ export class WalletClient {
       options: {
         showType: true,
         showDisplay: true,
-        showContent: false,
+        showContent: true,
         showBcs: false,
         showOwner: false,
         showPreviousTransaction: false,
         showStorageRebate: false,
       },
     });
+
+    const kiosk = objects?.data
+      .filter(
+        ({ data }) =>
+          typeof data === 'object' &&
+          data.content &&
+          // @ts-ignore
+          'kiosk' in data.content.fields,
+      )
+      .map(({ data }) => data as SuiObjectData);
 
     const nfts = objects?.data
       .filter(
@@ -490,7 +508,7 @@ export class WalletClient {
       )
       .map(({ data }) => data as SuiObjectData);
 
-    const nftsWithMetadataArray = [];
+    const nftsWithMetadataArray: any = [];
 
     await Promise.all(
       nfts.map(async (nft) => {
@@ -502,6 +520,28 @@ export class WalletClient {
           nftMeta,
           objectId: nft.objectId,
         });
+      }),
+    );
+
+    await Promise.all(
+      kiosk.map(async (d) => {
+        try {
+          // @ts-ignore
+          const kioskNfts = await this.getKioskNfts(d.content?.fields?.kiosk);
+          await Promise.all(
+            kioskNfts.map(async ({ nft }) => {
+              if (!nft) return;
+              const nftMeta = await this.getNftMetadata(nft);
+              if (!nftMeta) return;
+              nftsWithMetadataArray.push({
+                nftMeta,
+                objectId: nft,
+              });
+            }),
+          );
+        } catch (err) {
+          console.warn(err);
+        }
       }),
     );
 
