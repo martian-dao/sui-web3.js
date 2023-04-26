@@ -380,6 +380,12 @@ export class WalletClient {
         filter: {
           ToAddress: address!,
         },
+        // @ts-ignore
+        options: {
+          showInput: true,
+          showEffects: true,
+          showEvents: true,
+        },
         cursor,
         limit,
       }),
@@ -387,30 +393,29 @@ export class WalletClient {
         filter: {
           FromAddress: address!,
         },
+        // @ts-ignore
+        options: {
+          showInput: true,
+          showEffects: true,
+          showEvents: true,
+        },
         cursor,
         limit,
       }),
     ]);
 
-    const dedupeTxns = dedupe(
-      [...txnIds.data, ...fromTxnIds.data].map((x) => x.digest),
-    );
+    const inserted = new Map();
+    const uniqueList = [];
 
-    const txnData = await this.provider.multiGetTransactionBlocks({
-      digests: dedupeTxns.length > 50 ? dedupeTxns.slice(50) : dedupeTxns,
-      options: {
-        showInput: true,
-        showEffects: true,
-        showEvents: true,
-        showObjectChanges: false,
-        showBalanceChanges: false,
-      },
-    });
+    [...txnIds.data, ...fromTxnIds.data]
+      .sort((a, b) => Number(b.timestampMs ?? 0) - Number(a.timestampMs ?? 0))
+      .forEach((txb) => {
+        if (inserted.get(txb.digest)) return;
+        uniqueList.push(txb);
+        inserted.set(txb.digest, true);
+      });
 
-    return txnData.sort(
-      // timestamp could be null, so we need to handle
-      (a, b) => parseInt(b.timestampMs || '0') - parseInt(a.timestampMs || '0'),
-    );
+    return uniqueList;
   }
 
   // Function to get the object metadata of a given objectId
