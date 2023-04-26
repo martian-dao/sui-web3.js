@@ -497,6 +497,8 @@ export class WalletClient {
           typeof data === 'object' &&
           data.content &&
           // @ts-ignore
+          data.content.fields &&
+          // @ts-ignore
           'kiosk' in data.content.fields,
       )
       .map(({ data }) => data as SuiObjectData);
