@@ -369,25 +369,35 @@ export class WalletClient {
     return await this.dryRunTransaction(tx);
   }
 
-  async getTransactions(address: SuiAddress) {
+  async getTransactions(
+    address: SuiAddress,
+    limit: number = 50,
+    cursor: string = undefined,
+  ) {
     // combine from and to transactions
     const [txnIds, fromTxnIds] = await Promise.all([
       this.provider.queryTransactionBlocks({
         filter: {
           ToAddress: address!,
         },
+        cursor,
+        limit,
       }),
       this.provider.queryTransactionBlocks({
         filter: {
           FromAddress: address!,
         },
+        cursor,
+        limit,
       }),
     ]);
 
+    const dedupeTxns = dedupe(
+      [...txnIds.data, ...fromTxnIds.data].map((x) => x.digest),
+    );
+
     const txnData = await this.provider.multiGetTransactionBlocks({
-      digests: dedupe(
-        [...txnIds.data, ...fromTxnIds.data].map((x) => x.digest),
-      ),
+      digests: dedupeTxns.length > 50 ? dedupeTxns.slice(50) : dedupeTxns,
       options: {
         showInput: true,
         showEffects: true,

@@ -19,8 +19,13 @@ export class RPCError extends Error {
     data?: unknown;
     cause?: Error;
   }) {
-    // @ts-ignore
-    super('RPC Error', { cause: options.cause });
+    super(
+      options.cause
+        ? `RPC Error: ${options.cause.message}`
+        : 'Unknown RPC Error',
+      // @ts-ignore
+      { cause: options.cause },
+    );
 
     this.req = options.req;
     this.code = options.code;
