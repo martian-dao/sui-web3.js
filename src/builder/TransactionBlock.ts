@@ -108,6 +108,14 @@ const MAX_GAS = 50_000_000_000;
 // An amount of gas (in gas units) that is added to transactions as an overhead to ensure transactions do not fail.
 const GAS_SAFE_OVERHEAD = 1000n;
 
+// The maximum objects that can be fetched at once using multiGetObjects.
+const MAX_OBJECTS_PER_FETCH = 50;
+
+const chunk = <T>(arr: T[], size: number): T[][] =>
+  Array.from({ length: Math.ceil(arr.length / size) }, (_, i) =>
+    arr.slice(i * size, i * size + size),
+  );
+
 interface BuildOptions {
   provider?: JsonRpcProvider;
   onlyTransactionKind?: boolean;
@@ -378,7 +386,12 @@ export class TransactionBlock {
   }
 
   // The current default is just picking _all_ coins we can which may not be ideal.
-  async #selectGasPayment(provider?: JsonRpcProvider) {
+  async #prepareGasPayment({ provider, onlyTransactionKind }: BuildOptions) {
+    // Early return if the payment is already set:
+    if (onlyTransactionKind || this.#blockData.gasConfig.payment) {
+      return;
+    }
+
     const gasOwner = this.#blockData.gasConfig.owner ?? this.#blockData.sender;
 
     const coins = await expectProvider(provider).getCoins({
@@ -414,18 +427,18 @@ export class TransactionBlock {
       throw new Error('No valid gas coins found for the transaction.');
     }
 
-    return paymentCoins;
+    this.setGasPayment(paymentCoins);
   }
 
-  /**
-   * Prepare the transaction by valdiating the transaction data and resolving all inputs
-   * so that it can be built into bytes.
-   */
-  async #prepare({ provider, onlyTransactionKind }: BuildOptions) {
-    if (!onlyTransactionKind && !this.#blockData.sender) {
-      throw new Error('Missing transaction sender');
+  async #prepareGasPrice({ provider, onlyTransactionKind }: BuildOptions) {
+    if (onlyTransactionKind || this.#blockData.gasConfig.price) {
+      return;
     }
 
+    this.setGasPrice(await expectProvider(provider).getReferenceGasPrice());
+  }
+
+  async #prepareTransactions(provider?: JsonRpcProvider) {
     const { inputs, transactions } = this.#blockData;
 
     const moveModulesToResolve: MoveCallTransaction[] = [];
@@ -588,11 +601,19 @@ export class TransactionBlock {
 
     if (objectsToResolve.length) {
       const dedupedIds = [...new Set(objectsToResolve.map(({ id }) => id))];
-      const objects = await expectProvider(provider).multiGetObjects({
-        ids: dedupedIds,
-        // @ts-ignore
-        options: { showOwner: true },
-      });
+      const objectChunks = chunk(dedupedIds, MAX_OBJECTS_PER_FETCH);
+      const objects = (
+        await Promise.all(
+          objectChunks.map((chunk) =>
+            expectProvider(provider).multiGetObjects({
+              ids: chunk,
+              // @ts-ignore
+              options: { showOwner: true },
+            }),
+          ),
+        )
+      ).flat();
+
       let objectsById = new Map(
         dedupedIds.map((id, index) => {
           return [id, objects[index]];
@@ -633,18 +654,26 @@ export class TransactionBlock {
         }
       });
     }
+  }
+
+  /**
+   * Prepare the transaction by valdiating the transaction data and resolving all inputs
+   * so that it can be built into bytes.
+   */
+  async #prepare({ provider, onlyTransactionKind }: BuildOptions) {
+    if (!onlyTransactionKind && !this.#blockData.sender) {
+      throw new Error('Missing transaction sender');
+    }
+
+    await Promise.all([
+      this.#prepareGasPrice({ provider, onlyTransactionKind }),
+      this.#prepareTransactions(provider),
+    ]);
 
     if (!onlyTransactionKind) {
-      if (!this.#blockData.gasConfig.price) {
-        this.setGasPrice(await expectProvider(provider).getReferenceGasPrice());
-      }
+      await this.#prepareGasPayment({ provider, onlyTransactionKind });
 
-      if (!this.#blockData.gasConfig.payment) {
-        this.#blockData.gasConfig.payment = await this.#selectGasPayment(
-          provider,
-        );
-      }
-      if (!this.blockData.gasConfig.budget) {
+      if (!this.#blockData.gasConfig.budget) {
         const dryRunResult = await expectProvider(
           provider,
         ).dryRunTransactionBlock({
