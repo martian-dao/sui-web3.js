@@ -521,6 +521,7 @@ export class WalletClient {
         nftsWithMetadataArray.push({
           nftMeta,
           objectId: nft.objectId,
+          type: 'nft',
         });
       }),
     );
@@ -538,6 +539,7 @@ export class WalletClient {
               nftsWithMetadataArray.push({
                 nftMeta,
                 objectId: nft,
+                type: 'kiosk-nft',
               });
             }),
           );
