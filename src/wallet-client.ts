@@ -275,7 +275,7 @@ export class WalletClient {
         }
 
         if (!coinData && c.coinType !== SUI_TYPE_ARG) return;
-        if (!coinData && c.coinType === SUI_TYPE_ARG) {
+        if (c.coinType === SUI_TYPE_ARG) {
           return {
             Id: c.coinObjectId,
             symbol: Coin.getCoinSymbol(c.coinType),
