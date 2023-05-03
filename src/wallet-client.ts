@@ -289,8 +289,8 @@ export class WalletClient {
 
         return {
           Id: c.coinObjectId,
-          symbol: Coin.getCoinSymbol(c.coinType),
-          name: Coin.getCoinSymbol(c.coinType),
+          symbol: coinData.symbol,
+          name: coinData.name,
           balance: Number(c.balance),
           decimals: coinData.decimals,
           iconUrl: coinData.iconUrl,
