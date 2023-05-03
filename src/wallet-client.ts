@@ -477,8 +477,8 @@ export class WalletClient {
   }
 
   // Function to get an array of all the nfts (with required metadata) owned by an address
-  async getNfts(address: SuiAddress) {
-    let objects = await this.provider.getOwnedObjects({
+  async getNfts(address: SuiAddress, after: string | undefined = undefined) {
+    const args: any = {
       owner: address,
       options: {
         showType: true,
@@ -489,7 +489,13 @@ export class WalletClient {
         showPreviousTransaction: false,
         showStorageRebate: false,
       },
-    });
+    };
+
+    if (after) {
+      args.cursor = after;
+    }
+
+    let objects = await this.provider.getOwnedObjects(args);
 
     const kiosk = objects?.data
       .filter(
@@ -549,7 +555,11 @@ export class WalletClient {
       }),
     );
 
-    return nftsWithMetadataArray;
+    return {
+      nftsWithMetadataArray,
+      cursor: objects.nextCursor,
+      hasNextPage: objects.hasNextPage,
+    };
   }
 
   // get the current system state (required to get total staked sui value and validators data)
