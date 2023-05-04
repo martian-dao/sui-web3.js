@@ -477,7 +477,11 @@ export class WalletClient {
   }
 
   // Function to get an array of all the nfts (with required metadata) owned by an address
-  async getNfts(address: SuiAddress, after: string | undefined = undefined) {
+  async getNfts(
+    address: SuiAddress,
+    after: string | undefined = undefined,
+    limit: number | undefined = undefined,
+  ) {
     const args: any = {
       owner: address,
       options: {
@@ -493,6 +497,10 @@ export class WalletClient {
 
     if (after) {
       args.cursor = after;
+    }
+
+    if (limit) {
+      args.limit = limit;
     }
 
     let objects = await this.provider.getOwnedObjects(args);
