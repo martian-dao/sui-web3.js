@@ -461,6 +461,7 @@ export class WalletClient {
       link: link || null,
       projectUrl: project_url || null,
       creator: creator || null,
+      data: resp.data,
     };
   }
 
