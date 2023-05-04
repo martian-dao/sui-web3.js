@@ -540,7 +540,7 @@ export class WalletClient {
               nftsWithMetadataArray.push({
                 nftMeta,
                 objectId: nft,
-                kisokInfo: d,
+                kioskInfo: d,
                 type: 'kiosk-nft',
               });
             }),
