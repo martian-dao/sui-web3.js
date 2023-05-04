@@ -577,11 +577,15 @@ export class WalletClient {
     if (!data) return [];
 
     const totalStake = await this.getTotalStake();
+    const { apys } = await this.provider.getValidatorsApy();
     const sortedAsc = data.activeValidators
       .map((validator) => ({
         name: validator.name,
         address: validator.suiAddress,
-        apy: calculateAPY(validator, +data.epoch),
+        imageUrl: validator.imageUrl,
+        apy: calculateAPY(
+          apys.filter((d) => d.address === validator.suiAddress)[0]?.apy || 0,
+        ),
         stakeShare: calculateStakeShare(
           BigInt(validator.stakingPoolSuiBalance),
           BigInt(totalStake),
