@@ -454,6 +454,9 @@ export class WalletClient {
     const { name, description, creator, image_url, link, project_url } =
       display.data;
 
+    // return display object doesn't have image url
+    if (!image_url) return null;
+
     return {
       name: name || null,
       description: description || null,
