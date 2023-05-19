@@ -480,10 +480,26 @@ export class WalletClient {
       .map((item) => ({ kioskId, nft: item.name.value.id }));
   }
 
-  // Function to get an array of all the nfts (with required metadata) owned by an address
-  async getNfts(address: SuiAddress) {
-    let objects = await this.provider.getOwnedObjects({
+  /**
+   * This function retrieves the contents of kiosks owned by a given address on the OriginByte
+   * contract.
+   * @param {SuiAddress} address - The `address` parameter is a `SuiAddress` type
+   * @returns The function `getOriginByteKioskContents` returns the contents of the objects within the
+   * kiosks owned by the provided address. The contents are fetched by first finding the kiosk IDs
+   * owned by the address, then finding the object IDs within each kiosk, and finally fetching the
+   * contents of the objects within each kiosk. The function returns the fetched kiosk content.
+   */
+  async getOriginByteKioskContents(address: SuiAddress) {
+    // OriginByte contract address for mainnet (we only support mainnet)
+    const ORIGINBYTE_KIOSK_MODULE =
+      '0x95a441d389b07437d00dd07e0b6f05f513d7659b13fd7c5d3923c7d9d847199b::ob_kiosk';
+    const ORIGINBYTE_KIOSK_OWNER_TOKEN = `${ORIGINBYTE_KIOSK_MODULE}::OwnerToken`;
+
+    const objects = await this.provider.getOwnedObjects({
       owner: address,
+      filter: {
+        StructType: ORIGINBYTE_KIOSK_OWNER_TOKEN,
+      },
       options: {
         showType: true,
         showDisplay: true,
@@ -495,22 +511,107 @@ export class WalletClient {
       },
     });
 
-    const kiosk = objects?.data
-      .filter(
-        ({ data }) =>
-          typeof data === 'object' &&
-          data.content &&
-          // @ts-ignore
-          data.content.fields &&
-          // @ts-ignore
-          'kiosk' in data.content.fields,
-      )
-      .map(({ data }) => data as SuiObjectData);
+    // find list of kiosk IDs owned by address
+    const obKioskIds =
+      objects?.data.map(
+        (obj) =>
+          obj.data?.content &&
+          'fields' in obj.data.content &&
+          obj.data.content.fields.kiosk,
+      ) ?? [];
+
+    if (!obKioskIds.length) return [];
+
+    // fetch the user's kiosks
+    const ownedKiosks = await this.provider.multiGetObjects({
+      ids: obKioskIds,
+      options: {
+        showType: true,
+        showDisplay: true,
+        showContent: true,
+        showBcs: false,
+        showOwner: false,
+        showPreviousTransaction: false,
+        showStorageRebate: false,
+      },
+    });
+
+    // find object IDs within a kiosk
+    const kioskObjectIds = await Promise.all(
+      ownedKiosks.map(async (kiosk) => {
+        if (!kiosk.data?.objectId) return [];
+        const objects = await this.provider.getDynamicFields({
+          parentId: kiosk.data.objectId,
+        });
+        return objects.data.map((obj) => obj.objectId);
+      }),
+    );
+
+    // fetch the contents of the objects within a kiosk
+    const kioskContent = await this.provider.multiGetObjects({
+      ids: kioskObjectIds.flat(),
+      options: {
+        showType: true,
+        showDisplay: true,
+        showContent: true,
+        showBcs: false,
+        showOwner: false,
+        showPreviousTransaction: false,
+        showStorageRebate: false,
+      },
+    });
+
+    return kioskContent;
+  }
+
+  /**
+   * This function retrieves NFTs owned by a given address and their metadata, as well as kiosk NFTs
+   * and their metadata if specified.
+   * @param {SuiAddress} address - The address of the owner whose NFTs are being fetched.
+   * @param {boolean} [shouldFetchKioskContents] - `shouldFetchKioskContents` is an optional boolean
+   * parameter that determines whether or not to fetch kiosk contents for the given `address`. If
+   * `shouldFetchKioskContents` is `true`, the function will call
+   * `this.getOriginByteKioskContents(address)` to fetch kiosk contents
+   * shouldFetchKioskContents will be true only for mainnet
+   * @returns The function `getNfts` returns an array of objects containing metadata for NFTs owned by
+   * a given address, as well as metadata for NFTs stored in a kiosk (if `shouldFetchKioskContents` is
+   * set to `true`). Each object in the array contains the following properties: `nftMeta` (an object
+   * containing metadata for the NFT), `objectId` and `type`
+   */
+  async getNfts(address: SuiAddress, shouldFetchKioskContents?: boolean) {
+    let objects = await this.provider.getOwnedObjects({
+      owner: address,
+      filter: {
+        MatchNone: [{ StructType: '0x2::coin::Coin' }],
+      },
+      options: {
+        showType: true,
+        showDisplay: true,
+        showContent: true,
+        showBcs: false,
+        showOwner: false,
+        showPreviousTransaction: false,
+        showStorageRebate: false,
+      },
+    });
+
+    let obKioskContents;
+    if (shouldFetchKioskContents) {
+      obKioskContents = await this.getOriginByteKioskContents(address);
+    }
+
+    const filteredKioskContents =
+      obKioskContents
+        ?.filter(
+          ({ data }) =>
+            typeof data === 'object' && 'display' in data && data.display.data,
+        )
+        .map(({ data }) => data as SuiObjectData) || [];
 
     const nfts = objects?.data
       .filter(
         ({ data }) =>
-          typeof data === 'object' && 'display' in data && data.display,
+          typeof data === 'object' && 'display' in data && data.display.data,
       )
       .map(({ data }) => data as SuiObjectData);
 
@@ -519,40 +620,40 @@ export class WalletClient {
     await Promise.all(
       nfts.map(async (nft) => {
         const nftMeta = await this.getNftMetadata(nft.objectId);
-
-        if (!nftMeta) return;
-
-        nftsWithMetadataArray.push({
-          nftMeta,
-          objectId: nft.objectId,
-          type: 'nft',
-        });
-      }),
-    );
-
-    await Promise.all(
-      kiosk.map(async (d) => {
-        try {
-          // @ts-ignore
-          const kioskNfts = await this.getKioskNfts(d.content?.fields?.kiosk);
-          await Promise.all(
-            kioskNfts.map(async ({ nft }) => {
-              if (!nft) return;
-              const nftMeta = await this.getNftMetadata(nft);
-              if (!nftMeta) return;
-              nftsWithMetadataArray.push({
-                nftMeta,
-                objectId: nft,
-                kioskInfo: d,
-                type: 'kiosk-nft',
-              });
-            }),
-          );
-        } catch (err) {
-          console.warn(err);
+        if (nftMeta) {
+          nftsWithMetadataArray.push({
+            nftMeta,
+            objectId: nft.objectId,
+            type: 'nft',
+          });
+        } else {
+          const nftDisplayData: any = nft.display.data;
+          nftsWithMetadataArray.push({
+            nftMeta: {
+              ...nftDisplayData,
+              imageUrl: nftDisplayData?.image_url,
+            },
+            objectId: nft.objectId,
+            type: 'nft',
+          });
         }
       }),
     );
+
+    filteredKioskContents.forEach((nft) => {
+      const nftDisplayData: any = nft.display?.data;
+
+      if (nftDisplayData) {
+        nftsWithMetadataArray.push({
+          nftMeta: {
+            ...nftDisplayData,
+            imageUrl: nftDisplayData?.image_url,
+          },
+          objectId: nft.objectId,
+          type: 'kiosk_nft',
+        });
+      }
+    });
 
     return nftsWithMetadataArray;
   }
