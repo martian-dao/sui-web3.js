@@ -568,17 +568,12 @@ export class WalletClient {
    * This function retrieves NFTs owned by a given address and their metadata, as well as kiosk NFTs
    * and their metadata if specified.
    * @param {SuiAddress} address - The address of the owner whose NFTs are being fetched.
-   * @param {boolean} [shouldFetchKioskContents] - `shouldFetchKioskContents` is an optional boolean
-   * parameter that determines whether or not to fetch kiosk contents for the given `address`. If
-   * `shouldFetchKioskContents` is `true`, the function will call
-   * `this.getOriginByteKioskContents(address)` to fetch kiosk contents
-   * shouldFetchKioskContents will be true only for mainnet
    * @returns The function `getNfts` returns an array of objects containing metadata for NFTs owned by
-   * a given address, as well as metadata for NFTs stored in a kiosk (if `shouldFetchKioskContents` is
-   * set to `true`). Each object in the array contains the following properties: `nftMeta` (an object
+   * a given address, as well as metadata for NFTs stored in a kiosk.
+   * Each object in the array contains the following properties: `nftMeta` (an object
    * containing metadata for the NFT), `objectId` and `type`
    */
-  async getNfts(address: SuiAddress, shouldFetchKioskContents?: boolean) {
+  async getNfts(address: SuiAddress) {
     let objects = await this.provider.getOwnedObjects({
       owner: address,
       filter: {
@@ -595,10 +590,7 @@ export class WalletClient {
       },
     });
 
-    let obKioskContents;
-    if (shouldFetchKioskContents) {
-      obKioskContents = await this.getOriginByteKioskContents(address);
-    }
+    const obKioskContents = await this.getOriginByteKioskContents(address);
 
     const filteredKioskContents =
       obKioskContents
