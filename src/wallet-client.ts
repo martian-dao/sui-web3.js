@@ -454,6 +454,9 @@ export class WalletClient {
     const { name, description, creator, image_url, link, project_url } =
       display.data;
 
+    // return display object doesn't have image url
+    if (!image_url) return null;
+
     return {
       name: name || null,
       description: description || null,
@@ -461,6 +464,7 @@ export class WalletClient {
       link: link || null,
       projectUrl: project_url || null,
       creator: creator || null,
+      data: resp.data,
     };
   }
 
@@ -553,6 +557,7 @@ export class WalletClient {
               nftsWithMetadataArray.push({
                 nftMeta,
                 objectId: nft,
+                kioskInfo: d,
                 type: 'kiosk-nft',
               });
             }),
@@ -595,11 +600,15 @@ export class WalletClient {
     if (!data) return [];
 
     const totalStake = await this.getTotalStake();
+    const { apys } = await this.provider.getValidatorsApy();
     const sortedAsc = data.activeValidators
       .map((validator) => ({
         name: validator.name,
         address: validator.suiAddress,
-        apy: calculateAPY(validator, +data.epoch),
+        imageUrl: validator.imageUrl,
+        apy: calculateAPY(
+          apys.filter((d) => d.address === validator.suiAddress)[0]?.apy || 0,
+        ),
         stakeShare: calculateStakeShare(
           BigInt(validator.stakingPoolSuiBalance),
           BigInt(totalStake),

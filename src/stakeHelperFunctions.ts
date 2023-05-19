@@ -5,7 +5,7 @@ import BigNumber from 'bignumber.js';
 export const calculateStakeShare = (
   validatorStake: bigint,
   totalStake: bigint,
-  decimalPlaces = 3,
+  decimalPlaces = 2,
 ) => {
   const bn = new BigNumber(validatorStake.toString());
   const bd = new BigNumber(totalStake.toString());
@@ -17,35 +17,8 @@ export const calculateStakeShare = (
   return percentage;
 };
 
-export function calculateAPY(
-  validator: SuiValidatorSummary,
-  epoch: number,
-  roundDecimals = 4,
-) {
-  let apy: any;
-  const {
-    stakingPoolSuiBalance,
-    stakingPoolActivationEpoch,
-    poolTokenBalance,
-  } = validator;
-
-  // If the staking pool is active then we calculate its APY. Or if staking started in epoch 0
-  if (stakingPoolActivationEpoch || parseInt(stakingPoolActivationEpoch) === 0) {
-    const numEpochsParticipated = epoch - parseInt(stakingPoolActivationEpoch);
-    apy =
-      Math.pow(
-        1 + (+stakingPoolSuiBalance - +poolTokenBalance) / +poolTokenBalance,
-        365 / numEpochsParticipated,
-      ) - 1;
-  } else {
-    apy = 0;
-  }
-
-  //guard against NaN
-  const apyReturn = apy ? parseFloat(apy.toFixed(roundDecimals)) : 0;
-
-  // guard against very large numbers (e.g. 1e+100)
-  return apyReturn > 100_000 ? 0 : apyReturn;
+export function calculateAPY(apy: number, roundDecimals = 4) {
+  return parseFloat((apy * 100).toFixed(roundDecimals));
 }
 
 // Get staked Sui
