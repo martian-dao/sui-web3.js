@@ -650,7 +650,7 @@ export class WalletClient {
             imageUrl: nftDisplayData?.image_url,
           },
           objectId: nft.objectId,
-          type: 'kiosk_nft',
+          type: 'kiosk-nft',
         });
       }
     });
