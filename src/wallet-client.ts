@@ -578,7 +578,7 @@ export class WalletClient {
    * set to `true`). Each object in the array contains the following properties: `nftMeta` (an object
    * containing metadata for the NFT), `objectId` and `type`
    */
-  async getNfts(address: SuiAddress, shouldFetchKioskContents?: boolean) {
+  async getNfts(address: SuiAddress, shouldFetchKioskContents: boolean = true) {
     let objects = await this.provider.getOwnedObjects({
       owner: address,
       filter: {
@@ -599,7 +599,6 @@ export class WalletClient {
     if (shouldFetchKioskContents) {
       obKioskContents = await this.getOriginByteKioskContents(address);
     }
-
     const filteredKioskContents =
       obKioskContents
         ?.filter(
