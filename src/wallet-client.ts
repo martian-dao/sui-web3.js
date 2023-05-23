@@ -504,12 +504,14 @@ export class WalletClient {
         showType: true,
         showDisplay: true,
         showContent: true,
-        showBcs: false,
-        showOwner: false,
-        showPreviousTransaction: false,
-        showStorageRebate: false,
+        showBcs: true,
+        showOwner: true,
+        showPreviousTransaction: true,
+        showStorageRebate: true,
       },
     });
+
+    const kioskInfo = objects?.data[0].data?.content;
 
     // find list of kiosk IDs owned by address
     const obKioskIds =
@@ -529,10 +531,10 @@ export class WalletClient {
         showType: true,
         showDisplay: true,
         showContent: true,
-        showBcs: false,
-        showOwner: false,
-        showPreviousTransaction: false,
-        showStorageRebate: false,
+        showBcs: true,
+        showOwner: true,
+        showPreviousTransaction: true,
+        showStorageRebate: true,
       },
     });
 
@@ -554,14 +556,14 @@ export class WalletClient {
         showType: true,
         showDisplay: true,
         showContent: true,
-        showBcs: false,
-        showOwner: false,
-        showPreviousTransaction: false,
-        showStorageRebate: false,
+        showBcs: true,
+        showOwner: true,
+        showPreviousTransaction: true,
+        showStorageRebate: true,
       },
     });
 
-    return kioskContent;
+    return { kioskContent, kioskInfo };
   }
 
   /**
@@ -573,7 +575,7 @@ export class WalletClient {
    * Each object in the array contains the following properties: `nftMeta` (an object
    * containing metadata for the NFT), `objectId` and `type`
    */
-  async getNfts(address: SuiAddress) {
+  async getNfts(address: SuiAddress, shouldFetchKioskContents: boolean = true) {
     let objects = await this.provider.getOwnedObjects({
       owner: address,
       filter: {
@@ -590,10 +592,12 @@ export class WalletClient {
       },
     });
 
-    const obKioskContents = await this.getOriginByteKioskContents(address);
-
+    let obKioskContents;
+    if (shouldFetchKioskContents) {
+      obKioskContents = await this.getOriginByteKioskContents(address);
+    }
     const filteredKioskContents =
-      obKioskContents
+      obKioskContents.kioskContent
         ?.filter(
           ({ data }) =>
             typeof data === 'object' && 'display' in data && data.display.data,
@@ -637,12 +641,15 @@ export class WalletClient {
 
       if (nftDisplayData) {
         nftsWithMetadataArray.push({
+          ...nft,
           nftMeta: {
             ...nftDisplayData,
             imageUrl: nftDisplayData?.image_url,
           },
           objectId: nft.objectId,
           type: 'kiosk-nft',
+          kioskInfo: obKioskContents.kioskInfo,
+          nftType: nft.type,
         });
       }
     });
