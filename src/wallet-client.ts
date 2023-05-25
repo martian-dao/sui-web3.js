@@ -511,7 +511,7 @@ export class WalletClient {
       },
     });
 
-    const kioskInfo = objects?.data[0].data?.content;
+    const kioskInfo = objects?.data[0]?.data?.content;
 
     // find list of kiosk IDs owned by address
     const obKioskIds =
