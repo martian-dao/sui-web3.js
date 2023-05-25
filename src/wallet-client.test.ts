@@ -5,8 +5,8 @@ import * as Nacl from 'tweetnacl';
 import { SUI_TYPE_ARG } from './types';
 import { TransactionBlock } from './builder';
 
-const NODE_URL = 'https://fullnode.mainnet.sui.io/';
-const FAUCET_URL = 'https://faucet.mainnet.sui.io/gas';
+const NODE_URL = 'https://fullnode.devnet.sui.io/';
+const FAUCET_URL = 'https://faucet.devnet.sui.io/gas';
 
 let alice;
 let aliceAccount;
