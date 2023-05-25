@@ -570,13 +570,25 @@ export class WalletClient {
    * This function retrieves NFTs owned by a given address and their metadata, as well as kiosk NFTs
    * and their metadata if specified.
    * @param {SuiAddress} address - The address of the owner whose NFTs are being fetched.
+   * @param {boolean} [shouldFetchKioskContents] - `shouldFetchKioskContents` is an optional boolean
+   * @param {string} after - last fetched key
+   * @param {number} limit - limit total count
+   * parameter that determines whether or not to fetch kiosk contents for the given `address`. If
+   * `shouldFetchKioskContents` is `true`, the function will call
+   * `this.getOriginByteKioskContents(address)` to fetch kiosk contents
+   * shouldFetchKioskContents will be true only for mainnet
    * @returns The function `getNfts` returns an array of objects containing metadata for NFTs owned by
    * a given address, as well as metadata for NFTs stored in a kiosk.
    * Each object in the array contains the following properties: `nftMeta` (an object
    * containing metadata for the NFT), `objectId` and `type`
    */
-  async getNfts(address: SuiAddress, shouldFetchKioskContents: boolean = true) {
-    let objects = await this.provider.getOwnedObjects({
+  async getNfts(
+    address: SuiAddress,
+    shouldFetchKioskContents: boolean = true,
+    after: string | undefined = undefined,
+    limit: number | undefined = undefined,
+  ) {
+    const args: any = {
       owner: address,
       filter: {
         MatchNone: [{ StructType: '0x2::coin::Coin' }],
@@ -590,7 +602,17 @@ export class WalletClient {
         showPreviousTransaction: false,
         showStorageRebate: false,
       },
-    });
+    };
+
+    if (after) {
+      args.cursor = after;
+    }
+
+    if (limit) {
+      args.limit = limit;
+    }
+
+    let objects = await this.provider.getOwnedObjects(args);
 
     let obKioskContents;
     if (shouldFetchKioskContents) {
@@ -654,7 +676,11 @@ export class WalletClient {
       }
     });
 
-    return nftsWithMetadataArray;
+    return {
+      nftsWithMetadataArray,
+      cursor: objects.nextCursor,
+      hasNextPage: objects.hasNextPage,
+    };
   }
 
   // get the current system state (required to get total staked sui value and validators data)
