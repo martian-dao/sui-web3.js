@@ -504,12 +504,14 @@ export class WalletClient {
         showType: true,
         showDisplay: true,
         showContent: true,
-        showBcs: false,
-        showOwner: false,
-        showPreviousTransaction: false,
-        showStorageRebate: false,
+        showBcs: true,
+        showOwner: true,
+        showPreviousTransaction: true,
+        showStorageRebate: true,
       },
     });
+
+    const kioskInfo = objects?.data[0]?.data?.content;
 
     // find list of kiosk IDs owned by address
     const obKioskIds =
@@ -529,10 +531,10 @@ export class WalletClient {
         showType: true,
         showDisplay: true,
         showContent: true,
-        showBcs: false,
-        showOwner: false,
-        showPreviousTransaction: false,
-        showStorageRebate: false,
+        showBcs: true,
+        showOwner: true,
+        showPreviousTransaction: true,
+        showStorageRebate: true,
       },
     });
 
@@ -554,14 +556,14 @@ export class WalletClient {
         showType: true,
         showDisplay: true,
         showContent: true,
-        showBcs: false,
-        showOwner: false,
-        showPreviousTransaction: false,
-        showStorageRebate: false,
+        showBcs: true,
+        showOwner: true,
+        showPreviousTransaction: true,
+        showStorageRebate: true,
       },
     });
 
-    return kioskContent;
+    return { kioskContent, kioskInfo };
   }
 
   /**
@@ -576,8 +578,8 @@ export class WalletClient {
    * `this.getOriginByteKioskContents(address)` to fetch kiosk contents
    * shouldFetchKioskContents will be true only for mainnet
    * @returns The function `getNfts` returns an array of objects containing metadata for NFTs owned by
-   * a given address, as well as metadata for NFTs stored in a kiosk (if `shouldFetchKioskContents` is
-   * set to `true`). Each object in the array contains the following properties: `nftMeta` (an object
+   * a given address, as well as metadata for NFTs stored in a kiosk.
+   * Each object in the array contains the following properties: `nftMeta` (an object
    * containing metadata for the NFT), `objectId` and `type`
    */
   async getNfts(
@@ -617,7 +619,7 @@ export class WalletClient {
       obKioskContents = await this.getOriginByteKioskContents(address);
     }
     const filteredKioskContents =
-      obKioskContents
+      obKioskContents.kioskContent
         ?.filter(
           ({ data }) =>
             typeof data === 'object' && 'display' in data && data.display.data,
@@ -661,12 +663,15 @@ export class WalletClient {
 
       if (nftDisplayData) {
         nftsWithMetadataArray.push({
+          ...nft,
           nftMeta: {
             ...nftDisplayData,
             imageUrl: nftDisplayData?.image_url,
           },
           objectId: nft.objectId,
           type: 'kiosk-nft',
+          kioskInfo: obKioskContents.kioskInfo,
+          nftType: nft.type,
         });
       }
     });

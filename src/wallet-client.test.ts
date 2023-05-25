@@ -136,8 +136,8 @@ test('verify getTransactions', async () => {
 test('verify getNfts', async () => {
   // This address has kiosk nfts
   const nfts = await apis.getNfts(
-    '0xa82be8eeff6b93bef7c0b3a4ebbbc44b61e8f7ad19b06a66147f4708cc6c167d',
+    '0x1ba6558d33b2b2eac213a06443e51b16c6a1fe9f4e9ad09c96ddeafb1d6fc173',
   );
-  console.log(nfts);
+  // console.log(nfts);
   expect(1).toBeGreaterThan(0);
 });
