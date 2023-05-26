@@ -451,14 +451,24 @@ export class WalletClient {
       return null;
     }
 
-    const { name, description, creator, image_url, link, project_url } =
-      display.data;
+    const {
+      name,
+      description,
+      creator,
+      image_url,
+      link,
+      project_url,
+      collection_name,
+      collection_image,
+    } = display.data;
 
     // return display object doesn't have image url
     if (!image_url) return null;
 
     return {
       name: name || null,
+      collection: collection_name || null,
+      collection_image: collection_image || null,
       description: description || null,
       imageUrl: image_url || null,
       link: link || null,
