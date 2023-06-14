@@ -141,3 +141,12 @@ test('verify getNfts', async () => {
   // console.log(nfts);
   expect(1).toBeGreaterThan(0);
 });
+
+test('verify getAccountFromMnemonic', async () => {
+  const account = WalletClient.getAccountFromMnemonic(
+    'enhance nephew render claim tube grace dream cheese coyote sad relief broom',
+  );
+  expect(account.getPublicKey().toSuiAddress()).toBe(
+    'b7657ece8328ed50a93a72aa091e9686cbd272ef584cba2f259452999f7c5ab1',
+  );
+});
