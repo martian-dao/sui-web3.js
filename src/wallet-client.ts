@@ -783,4 +783,15 @@ export class WalletClient {
     );
     return keypair;
   }
+
+  /**
+   * returns an Ed25519Keypair at position m/44'/784'/0'/0'/0'
+   *
+   * @param mnemonic mnemonic phrase of the wallet
+   * @returns Ed25519Keypair
+   */
+  static getAccountFromMnemonic(mnemonic: string) {
+    const keypair: Ed25519Keypair = Ed25519Keypair.deriveKeypair(mnemonic);
+    return keypair;
+  }
 }
