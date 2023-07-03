@@ -2,12 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import nacl from 'tweetnacl';
-import { ExportedKeypair, Keypair, PRIVATE_KEY_SIZE } from './keypair';
-import { Ed25519PublicKey } from './ed25519-publickey';
-import { isValidHardenedPath, mnemonicToSeedHex } from './mnemonics';
-import { derivePath } from '../utils/ed25519-hd-key';
+import type { ExportedKeypair } from '../../cryptography/keypair';
+import { Ed25519PublicKey } from './publickey';
+import {
+  isValidHardenedPath,
+  mnemonicToSeedHex,
+} from '../../cryptography/mnemonics';
+import { derivePath } from '../../utils/ed25519-hd-key';
 import { toB64 } from '@mysten/bcs';
-import { SignatureScheme } from './signature';
+import type { SignatureScheme } from '../../cryptography/signature';
+import { PRIVATE_KEY_SIZE, Keypair } from '../../cryptography/keypair';
 
 export const DEFAULT_ED25519_DERIVATION_PATH = "m/44'/784'/0'/0'/0'";
 
@@ -24,7 +28,7 @@ export interface Ed25519KeypairData {
 /**
  * An Ed25519 Keypair used for signing transactions.
  */
-export class Ed25519Keypair implements Keypair {
+export class Ed25519Keypair extends Keypair {
   private keypair: Ed25519KeypairData;
 
   /**
@@ -34,6 +38,7 @@ export class Ed25519Keypair implements Keypair {
    * @param keypair Ed25519 keypair
    */
   constructor(keypair?: Ed25519KeypairData) {
+    super();
     if (keypair) {
       this.keypair = keypair;
     } else {
@@ -65,7 +70,7 @@ export class Ed25519Keypair implements Keypair {
    * flag byte after checking it is indeed the Ed25519 scheme flag 0x00 (See more
    * on flag for signature scheme: https://github.com/MystenLabs/sui/blob/818406c5abdf7de1b80915a0519071eec3a5b1c7/crates/sui-types/src/crypto.rs#L1650):
    * ```
-   * import { Ed25519Keypair, fromB64 } from '@mysten/sui.js';
+   * import { Ed25519Keypair, fromB64 } from '@mysten/sui';
    * const raw = fromB64(t[1]);
    * if (raw[0] !== 0 || raw.length !== PRIVATE_KEY_SIZE + 1) {
    *   throw new Error('invalid key');
@@ -100,23 +105,14 @@ export class Ed25519Keypair implements Keypair {
   }
 
   /**
-   * Generate an Ed25519 keypair from a 32 byte seed.
-   *
-   * @param seed seed byte array
-   */
-  static fromSeed(seed: Uint8Array): Ed25519Keypair {
-    const seedLength = seed.length;
-    if (seedLength != 32) {
-      throw new Error(`Wrong seed size. Expected 32 bytes, got ${seedLength}.`);
-    }
-    return new Ed25519Keypair(nacl.sign.keyPair.fromSeed(seed));
-  }
-
-  /**
    * The public key for this Ed25519 keypair
    */
   getPublicKey(): Ed25519PublicKey {
     return new Ed25519PublicKey(this.keypair.publicKey);
+  }
+
+  async sign(data: Uint8Array) {
+    return this.signData(data);
   }
 
   /**
@@ -134,6 +130,19 @@ export class Ed25519Keypair implements Keypair {
   }
 
   /**
+   * Generate an Ed25519 keypair from a 32 byte seed.
+   *
+   * @param seed seed byte array
+   */
+  static fromSeed(seed: Uint8Array): Ed25519Keypair {
+    const seedLength = seed.length;
+    if (seedLength != 32) {
+      throw new Error(`Wrong seed size. Expected 32 bytes, got ${seedLength}.`);
+    }
+    return new Ed25519Keypair(nacl.sign.keyPair.fromSeed(seed));
+  }
+
+  /**
    * Derive Ed25519 keypair from mnemonics and path. The mnemonics must be normalized
    * and validated against the english wordlist.
    *
@@ -148,6 +157,24 @@ export class Ed25519Keypair implements Keypair {
       throw new Error('Invalid derivation path');
     }
     const { key } = derivePath(path, mnemonicToSeedHex(mnemonics));
+
+    return Ed25519Keypair.fromSecretKey(key);
+  }
+
+  /**
+   * Derive Ed25519 keypair from mnemonicSeed and path.
+   *
+   * If path is none, it will default to m/44'/784'/0'/0'/0', otherwise the path must
+   * be compliant to SLIP-0010 in form m/44'/784'/{account_index}'/{change_index}'/{address_index}'.
+   */
+  static deriveKeypairFromSeed(seedHex: string, path?: string): Ed25519Keypair {
+    if (path == null) {
+      path = DEFAULT_ED25519_DERIVATION_PATH;
+    }
+    if (!isValidHardenedPath(path)) {
+      throw new Error('Invalid derivation path');
+    }
+    const { key } = derivePath(path, seedHex);
 
     return Ed25519Keypair.fromSecretKey(key);
   }

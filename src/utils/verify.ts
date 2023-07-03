@@ -3,17 +3,16 @@
 
 import { fromB64 } from '@mysten/bcs';
 import nacl from 'tweetnacl';
-import { IntentScope, messageWithIntent } from './intent';
+import type { IntentScope } from './intent';
+import { messageWithIntent } from './intent';
 import { secp256k1 } from '@noble/curves/secp256k1';
 import { sha256 } from '@noble/hashes/sha256';
-import {
-  fromSerializedSignature,
-  SerializedSignature,
-} from '../cryptography/signature';
+import type { SerializedSignature } from '../cryptography/signature';
 import { blake2b } from '@noble/hashes/blake2b';
+import { toSingleSignaturePubkeyPair } from '../cryptography/utils';
 
 // TODO: This might actually make sense to eventually move to the `Keypair` instances themselves, as
-// it could allow the Sui.js to be tree-shaken a little better, possibly allowing keypairs that are
+// it could allow the Sui to be tree-shaken a little better, possibly allowing keypairs that are
 // not used (and their deps) to be entirely removed from the bundle.
 
 /** Verify data that is signed with the expected scope. */
@@ -22,7 +21,7 @@ export async function verifyMessage(
   serializedSignature: SerializedSignature,
   scope: IntentScope,
 ) {
-  const signature = fromSerializedSignature(serializedSignature);
+  const signature = toSingleSignaturePubkeyPair(serializedSignature);
   const messageBytes = messageWithIntent(
     scope,
     typeof message === 'string' ? fromB64(message) : message,

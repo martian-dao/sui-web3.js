@@ -1,13 +1,14 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
-export * from './cryptography/ed25519-keypair';
-export * from './cryptography/secp256k1-keypair';
+export * from './keypairs/ed25519/index';
+export * from './keypairs/secp256k1/index';
+export * from './keypairs/secp256r1/index';
 export * from './cryptography/keypair';
-export * from './cryptography/ed25519-publickey';
-export * from './cryptography/secp256k1-publickey';
+export * from './cryptography/multisig';
 export * from './cryptography/publickey';
 export * from './cryptography/mnemonics';
 export * from './cryptography/signature';
+export * from './cryptography/utils';
 
 export * from './providers/json-rpc-provider';
 
@@ -23,15 +24,15 @@ export * from './signers/raw-signer';
 export * from './signers/signer-with-provider';
 export * from './signers/types';
 
-export * from './types';
+export * from './types/index';
 export * from './utils/format';
 export * from './utils/intent';
 export * from './utils/verify';
 export * from './utils/errors';
 
-export * from './framework';
+export * from './framework/index';
 
-export * from './builder';
+export * from './builder/index';
 
 export * from './wallet-client';
 export * from './nft-client';

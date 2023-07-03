@@ -2,24 +2,24 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { fromB64, toB64 } from '@mysten/bcs';
-import { TransactionBlock } from '../builder';
+import { TransactionBlock } from '../builder/index';
 import { TransactionBlockDataBuilder } from '../builder/TransactionBlockData';
-import { SerializedSignature } from '../cryptography/signature';
-import { JsonRpcProvider } from '../providers/json-rpc-provider';
-import { HttpHeaders } from '../rpc/client';
-import {
+import type { SerializedSignature } from '../cryptography/signature';
+import type { JsonRpcProvider } from '../providers/json-rpc-provider';
+import type { HttpHeaders } from '../rpc/client';
+import type {
   ExecuteTransactionRequestType,
   FaucetResponse,
-  getTotalGasUsedUpperBound,
   SuiAddress,
   DevInspectResults,
   DryRunTransactionBlockResponse,
   SuiTransactionBlockResponse,
   SuiTransactionBlockResponseOptions,
-} from '../types';
+} from '../types/index';
+import { getTotalGasUsedUpperBound } from '../types/index';
 import { IntentScope, messageWithIntent } from '../utils/intent';
-import { Signer } from './signer';
-import { SignedTransaction, SignedMessage } from './types';
+import type { Signer } from './signer';
+import type { SignedTransaction, SignedMessage } from './types';
 
 ///////////////////////////////
 // Exported Abstracts
@@ -76,26 +76,32 @@ export abstract class SignerWithProvider implements Signer {
     };
   }
 
+  protected async prepareTransactionBlock(
+    transactionBlock: Uint8Array | TransactionBlock,
+  ) {
+    if (TransactionBlock.is(transactionBlock)) {
+      // If the sender has not yet been set on the transaction, then set it.
+      // NOTE: This allows for signing transactions with mis-matched senders, which is important for sponsored transactions.
+      transactionBlock.setSenderIfNotSet(await this.getAddress());
+      return await transactionBlock.build({
+        provider: this.provider,
+      });
+    }
+    if (transactionBlock instanceof Uint8Array) {
+      return transactionBlock;
+    }
+    throw new Error('Unknown transaction format');
+  }
+
   /**
    * Sign a transaction.
    */
   async signTransactionBlock(input: {
     transactionBlock: Uint8Array | TransactionBlock;
   }): Promise<SignedTransaction> {
-    let transactionBlockBytes;
-
-    if (TransactionBlock.is(input.transactionBlock)) {
-      // If the sender has not yet been set on the transaction, then set it.
-      // NOTE: This allows for signing transactions with mis-matched senders, which is important for sponsored transactions.
-      input.transactionBlock.setSenderIfNotSet(await this.getAddress());
-      transactionBlockBytes = await input.transactionBlock.build({
-        provider: this.provider,
-      });
-    } else if (input.transactionBlock instanceof Uint8Array) {
-      transactionBlockBytes = input.transactionBlock;
-    } else {
-      throw new Error('Unknown transaction format');
-    }
+    const transactionBlockBytes = await this.prepareTransactionBlock(
+      input.transactionBlock,
+    );
 
     const intentMessage = messageWithIntent(
       IntentScope.TransactionData,

@@ -1,15 +1,14 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { TransactionBlock } from '../builder';
-import { JsonRpcProvider } from '../providers/json-rpc-provider';
+import { TransactionBlock } from '../builder/index';
+import type { JsonRpcProvider } from '../providers/json-rpc-provider';
+import type { ObjectId, SuiAddress } from '../types/index';
 import {
   getObjectReference,
   normalizeSuiObjectId,
-  ObjectId,
-  SuiAddress,
   SUI_SYSTEM_ADDRESS,
-} from '../types';
+} from '../types/index';
 
 /**
  * Address of the Sui System object.

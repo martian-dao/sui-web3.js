@@ -1,21 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-  array,
-  boolean,
-  Infer,
-  integer,
-  object,
-  string,
-  union,
-} from 'superstruct';
-import {
-  normalizeSuiAddress,
-  ObjectId,
-  SharedObjectRef,
-  SuiObjectRef,
-} from '../types';
+import type { Infer } from 'superstruct';
+import { array, boolean, integer, object, string, union } from 'superstruct';
+import type { ObjectId, SharedObjectRef } from '../types/index';
+import { normalizeSuiAddress, SuiObjectRef } from '../types/index';
 import { builder } from './bcs';
 
 const ObjectArg = union([
@@ -37,17 +26,14 @@ export type ObjectCallArg = Infer<typeof ObjectCallArg>;
 export const BuilderCallArg = union([PureCallArg, ObjectCallArg]);
 export type BuilderCallArg = Infer<typeof BuilderCallArg>;
 
-const MAX_PURE_ARGUMENT_SIZE = 16 * 1024;
-
 export const Inputs = {
   Pure(data: unknown, type?: string): PureCallArg {
     return {
       Pure: Array.from(
         data instanceof Uint8Array
           ? data
-          : builder
-              .ser(type!, data, { maxSize: MAX_PURE_ARGUMENT_SIZE })
-              .toBytes(),
+          : // NOTE: We explicitly set this to be growable to infinity, because we have maxSize validation at the builder-level:
+            builder.ser(type!, data, { maxSize: Infinity }).toBytes(),
       ),
     };
   },
