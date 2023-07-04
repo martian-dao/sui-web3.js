@@ -1,27 +1,37 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { ErrorResponse, HttpHeaders, JsonRpcClient } from '../rpc/client';
-import {
+import type { HttpHeaders } from '../rpc/client';
+import { JsonRpcClient } from '../rpc/client';
+import type {
   ExecuteTransactionRequestType,
   ObjectId,
-  PaginatedTransactionResponse,
-  SubscriptionId,
-  SuiAddress,
   SuiEventFilter,
+  TransactionDigest,
+  SuiTransactionBlockResponseQuery,
+  FaucetResponse,
+  Order,
+  CoinMetadata,
+  CheckpointDigest,
+  SuiObjectDataOptions,
+  SuiTransactionBlockResponseOptions,
+  SuiEvent,
+  SuiObjectResponseQuery,
+  TransactionFilter,
+  TransactionEffects,
+  Unsubscribe,
+} from '../types/index';
+import {
+  PaginatedTransactionResponse,
+  SuiAddress,
   SuiMoveFunctionArgTypes,
   SuiMoveNormalizedFunction,
   SuiMoveNormalizedModule,
   SuiMoveNormalizedModules,
   SuiMoveNormalizedStruct,
   SuiTransactionBlockResponse,
-  TransactionDigest,
-  SuiTransactionBlockResponseQuery,
   PaginatedEvents,
-  FaucetResponse,
-  Order,
   DevInspectResults,
-  CoinMetadata,
   isValidTransactionDigest,
   isValidSuiAddress,
   isValidSuiObjectId,
@@ -33,37 +43,34 @@ import {
   DelegatedStake,
   CoinBalance,
   CoinSupply,
-  CheckpointDigest,
   Checkpoint,
   CommitteeInfo,
   DryRunTransactionBlockResponse,
-  SuiObjectDataOptions,
   SuiSystemStateSummary,
-  SuiTransactionBlockResponseOptions,
-  SuiEvent,
   PaginatedObjectsResponse,
-  SuiObjectResponseQuery,
   ValidatorsApy,
   MoveCallMetrics,
   ObjectRead,
-} from '../types';
-import { DynamicFieldName, DynamicFieldPage } from '../types/dynamic_fields';
+  ResolvedNameServiceNames,
+  ProtocolConfig,
+} from '../types/index';
+import type { DynamicFieldName } from '../types/dynamic_fields';
+import { DynamicFieldPage } from '../types/dynamic_fields';
+import type { WebsocketClientOptions } from '../rpc/websocket-client';
 import {
   DEFAULT_CLIENT_OPTIONS,
   WebsocketClient,
-  WebsocketClientOptions,
 } from '../rpc/websocket-client';
 import { requestSuiFromFaucet } from '../rpc/faucet-client';
-import { any, is, array, string } from 'superstruct';
-import { toB64 } from '@mysten/bcs';
-import { SerializedSignature } from '../cryptography/signature';
-import { Connection, devnetConnection } from '../rpc/connection';
-import { TransactionBlock } from '../builder';
+import { any, array, string, nullable } from 'superstruct';
+import { fromB58, toB64, toHEX } from '@mysten/bcs';
+import type { SerializedSignature } from '../cryptography/signature';
+import type { Connection } from '../rpc/connection';
+import { devnetConnection } from '../rpc/connection';
+import { TransactionBlock } from '../builder/index';
 import { CheckpointPage } from '../types/checkpoints';
-import { RPCError } from '../utils/errors';
-import { NetworkMetrics } from '../types/metrics';
+import { NetworkMetrics, AddressMetrics } from '../types/metrics';
 import { EpochInfo, EpochPage } from '../types/epochs';
-import { lt } from '@suchipi/femver';
 
 export interface PaginationArguments<Cursor> {
   /** Optional paging cursor */
@@ -264,17 +271,8 @@ export class JsonRpcProvider {
    * @param method the method to be invoked
    * @param args the arguments to be passed to the RPC request
    */
-  async call(method: string, args: Array<any>): Promise<any> {
-    const response = await this.client.request(method, args);
-    if (is(response, ErrorResponse)) {
-      throw new RPCError({
-        req: { method, args },
-        code: response.error.code,
-        data: response.error.data,
-        cause: new Error(response.error.message),
-      });
-    }
-    return response.result;
+  async call(method: string, params: any[]): Promise<any> {
+    return await this.client.request(method, params);
   }
 
   /**
@@ -608,18 +606,27 @@ export class JsonRpcProvider {
     filter: SuiEventFilter;
     /** function to run when we receive a notification of a new event matching the filter */
     onMessage: (event: SuiEvent) => void;
-  }): Promise<SubscriptionId> {
-    return this.wsClient.subscribeEvent(input.filter, input.onMessage);
+  }): Promise<Unsubscribe> {
+    return this.wsClient.request({
+      method: 'suix_subscribeEvent',
+      unsubscribe: 'suix_unsubscribeEvent',
+      params: [input.filter],
+      onMessage: input.onMessage,
+    });
   }
 
-  /**
-   * Unsubscribe from an event subscription
-   */
-  async unsubscribeEvent(input: {
-    /** subscription id to unsubscribe from (previously received from subscribeEvent)*/
-    id: SubscriptionId;
-  }): Promise<boolean> {
-    return this.wsClient.unsubscribeEvent(input.id);
+  async subscribeTransaction(input: {
+    /** filter describing the subset of events to follow */
+    filter: TransactionFilter;
+    /** function to run when we receive a notification of a new event matching the filter */
+    onMessage: (event: TransactionEffects) => void;
+  }): Promise<Unsubscribe> {
+    return this.wsClient.request({
+      method: 'suix_subscribeTransaction',
+      unsubscribe: 'suix_unsubscribeTransaction',
+      params: [input.filter],
+      onMessage: input.onMessage,
+    });
   }
 
   /**
@@ -749,14 +756,9 @@ export class JsonRpcProvider {
       descendingOrder: boolean;
     } & PaginationArguments<CheckpointPage['nextCursor']>,
   ): Promise<CheckpointPage> {
-    const version = await this.getRpcApiVersion();
     const resp = await this.client.requestWithType(
       'sui_getCheckpoints',
-      [
-        input.cursor,
-        version && lt(version, '0.32.0') ? String(input?.limit) : input?.limit,
-        input.descendingOrder,
-      ],
+      [input.cursor, input?.limit, input.descendingOrder],
       CheckpointPage,
     );
     return resp;
@@ -783,6 +785,15 @@ export class JsonRpcProvider {
       NetworkMetrics,
     );
   }
+
+  async getAddressMetrics() {
+    return await this.client.requestWithType(
+      'suix_getLatestAddressMetrics',
+      [],
+      AddressMetrics,
+    );
+  }
+
   /**
    * Return the committee information for the asked epoch
    */
@@ -791,14 +802,9 @@ export class JsonRpcProvider {
       descendingOrder?: boolean;
     } & PaginationArguments<EpochPage['nextCursor']>,
   ): Promise<EpochPage> {
-    const version = await this.getRpcApiVersion();
     return await this.client.requestWithType(
       'suix_getEpochs',
-      [
-        input?.cursor,
-        version && lt(version, '0.32.0') ? String(input?.limit) : input?.limit,
-        input?.descendingOrder,
-      ],
+      [input?.cursor, input?.limit, input?.descendingOrder],
       EpochPage,
     );
   }
@@ -836,6 +842,45 @@ export class JsonRpcProvider {
     );
   }
 
+  // TODO: Migrate this to `sui_getChainIdentifier` once it is widely available.
+  async getChainIdentifier(): Promise<string> {
+    const checkpoint = await this.getCheckpoint({ id: '0' });
+    const bytes = fromB58(checkpoint.digest);
+    return toHEX(bytes.slice(0, 4));
+  }
+
+  async resolveNameServiceAddress(input: {
+    name: string;
+  }): Promise<SuiAddress | null> {
+    return await this.client.requestWithType(
+      'suix_resolveNameServiceAddress',
+      [input.name],
+      nullable(SuiAddress),
+    );
+  }
+
+  async resolveNameServiceNames(
+    input: {
+      address: string;
+    } & PaginationArguments<ResolvedNameServiceNames['nextCursor']>,
+  ): Promise<ResolvedNameServiceNames> {
+    return await this.client.requestWithType(
+      'suix_resolveNameServiceNames',
+      [input.address],
+      ResolvedNameServiceNames,
+    );
+  }
+
+  async getProtocolConfig(input?: {
+    version?: string;
+  }): Promise<ProtocolConfig> {
+    return await this.client.requestWithType(
+      'sui_getProtocolConfig',
+      [input?.version],
+      ProtocolConfig,
+    );
+  }
+
   /**
    * Wait for a transaction block result to be available over the API.
    * This can be used in conjunction with `executeTransactionBlock` to wait for the transaction to
@@ -863,6 +908,10 @@ export class JsonRpcProvider {
       timeoutSignal.addEventListener('abort', () =>
         reject(timeoutSignal.reason),
       );
+    });
+
+    timeoutPromise.catch(() => {
+      // Swallow unhandled rejections that might be thrown after early return
     });
 
     while (!timeoutSignal.aborted) {

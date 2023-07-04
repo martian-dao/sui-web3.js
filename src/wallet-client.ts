@@ -1,7 +1,8 @@
 import * as bip39 from '@scure/bip39';
 import * as english from '@scure/bip39/wordlists/english';
 import { TransactionBlock } from './builder';
-import { Ed25519Keypair } from './cryptography/ed25519-keypair';
+// import { Ed25519Keypair } from './cryptography/ed25519-keypair';
+import { Ed25519Keypair } from '.';
 // import { NftClient } from './nft_client';
 import { JsonRpcProvider } from '.';
 import { Connection } from './rpc/connection';

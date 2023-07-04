@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import fetch from 'isomorphic-fetch';
-import { FaucetResponse, SuiAddress } from '../types';
+import type { FaucetResponse, SuiAddress } from '../types/index';
 import { FaucetRateLimitError } from '../utils/errors';
-import { HttpHeaders } from './client';
+import type { HttpHeaders } from './client';
 
 export async function requestSuiFromFaucet(
   endpoint: string,

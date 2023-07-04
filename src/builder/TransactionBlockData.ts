@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { toB58 } from '@mysten/bcs';
+import type { Infer } from 'superstruct';
 import {
   array,
   assert,
   define,
-  Infer,
   integer,
   is,
   literal,
@@ -17,7 +17,7 @@ import {
   union,
 } from 'superstruct';
 import { hashTypedData } from '../cryptography/hash';
-import { normalizeSuiAddress, SuiObjectRef } from '../types';
+import { normalizeSuiAddress, SuiObjectRef } from '../types/index';
 import { builder } from './bcs';
 import { TransactionType, TransactionBlockInput } from './Transactions';
 import { BuilderCallArg, PureCallArg } from './Inputs';
@@ -69,10 +69,6 @@ export type SerializedTransactionDataBuilder = Infer<
 function prepareSuiAddress(address: string) {
   return normalizeSuiAddress(address).replace('0x', '');
 }
-
-// NOTE: This value should be kept in sync with the corresponding value in
-// crates/sui-protocol-config/src/lib.rs
-const TRANSACTION_DATA_MAX_SIZE = 128 * 1024;
 
 export class TransactionBlockDataBuilder {
   static fromKindBytes(bytes: Uint8Array) {
@@ -175,9 +171,11 @@ export class TransactionBlockDataBuilder {
   }
 
   build({
+    maxSizeBytes = Infinity,
     overrides,
     onlyTransactionKind,
   }: {
+    maxSizeBytes?: number;
     overrides?: Pick<
       Partial<TransactionBlockDataBuilder>,
       'sender' | 'gasConfig' | 'expiration'
@@ -199,7 +197,7 @@ export class TransactionBlockDataBuilder {
 
     if (onlyTransactionKind) {
       return builder
-        .ser('TransactionKind', kind, { maxSize: TRANSACTION_DATA_MAX_SIZE })
+        .ser('TransactionKind', kind, { maxSize: maxSizeBytes })
         .toBytes();
     }
 
@@ -244,7 +242,7 @@ export class TransactionBlockDataBuilder {
       .ser(
         'TransactionData',
         { V1: transactionData },
-        { maxSize: TRANSACTION_DATA_MAX_SIZE },
+        { maxSize: maxSizeBytes },
       )
       .toBytes();
   }

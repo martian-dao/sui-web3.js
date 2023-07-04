@@ -1,17 +1,20 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { Infer } from 'superstruct';
 import {
+  boolean,
   define,
-  Infer,
   literal,
+  nullable,
   number,
   object,
+  record,
   string,
   union,
 } from 'superstruct';
-import { CallArg } from './sui-bcs';
-import { fromB58 } from '@mysten/bcs';
+import type { CallArg } from './sui-bcs';
+import { fromB58, splitGenericParameters } from '@mysten/bcs';
 
 export const TransactionDigest = string();
 export type TransactionDigest = Infer<typeof TransactionDigest>;
@@ -54,6 +57,22 @@ export type SuiJsonValue =
   | CallArg
   | Array<SuiJsonValue>;
 export const SuiJsonValue = define<SuiJsonValue>('SuiJsonValue', () => true);
+
+const ProtocolConfigValue = union([
+  object({ u32: string() }),
+  object({ u64: string() }),
+  object({ f64: string() }),
+]);
+type ProtocolConfigValue = Infer<typeof ProtocolConfigValue>;
+
+export const ProtocolConfig = object({
+  attributes: record(string(), nullable(ProtocolConfigValue)),
+  featureFlags: record(string(), boolean()),
+  maxSupportedProtocolVersion: string(),
+  minSupportedProtocolVersion: string(),
+  protocolVersion: string(),
+});
+export type ProtocolConfig = Infer<typeof ProtocolConfig>;
 
 // source of truth is
 // https://github.com/MystenLabs/sui/blob/acb2b97ae21f47600e05b0d28127d88d0725561d/crates/sui-types/src/base_types.rs#L171
@@ -105,10 +124,9 @@ export function parseStructTag(type: string): StructTag {
   const rest = type.slice(address.length + module.length + 4);
   const name = rest.includes('<') ? rest.slice(0, rest.indexOf('<')) : rest;
   const typeParams = rest.includes('<')
-    ? rest
-        .slice(rest.indexOf('<') + 1, rest.lastIndexOf('>'))
-        .split(',')
-        .map((typeParam) => parseTypeTag(typeParam.trim()))
+    ? splitGenericParameters(
+        rest.slice(rest.indexOf('<') + 1, rest.lastIndexOf('>')),
+      ).map((typeParam) => parseTypeTag(typeParam.trim()))
     : [];
 
   return {

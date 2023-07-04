@@ -1,13 +1,9 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-  BCS,
-  EnumTypeDefinition,
-  getSuiMoveConfig,
-  StructTypeDefinition,
-} from '@mysten/bcs';
-import { SuiObjectRef } from './objects';
+import type { EnumTypeDefinition, StructTypeDefinition } from '@mysten/bcs';
+import { BCS, getSuiMoveConfig } from '@mysten/bcs';
+import type { SuiObjectRef } from './objects';
 
 /**
  * A reference to a shared object.
@@ -155,7 +151,7 @@ const BCS_SPEC: TypeSchema = {
       u256: null,
     },
     TransactionKind: {
-      // can not be called from sui.js; dummy placement
+      // can not be called from sui; dummy placement
       // to set the enum counter right for ProgrammableTransact
       ProgrammableTransaction: 'ProgrammableTransaction',
       ChangeEpoch: null,
@@ -164,7 +160,7 @@ const BCS_SPEC: TypeSchema = {
     },
     TransactionExpiration: {
       None: null,
-      Epoch: BCS.U64,
+      Epoch: 'unsafe_u64',
     },
     TransactionData: {
       V1: 'TransactionDataV1',
@@ -217,6 +213,12 @@ bcs.registerType(
     let bytes = reader.readVec((reader) => reader.read8());
     return new TextDecoder().decode(new Uint8Array(bytes));
   },
+);
+
+bcs.registerType(
+  'unsafe_u64',
+  (writer, data) => writer.write64(data),
+  (reader) => Number.parseInt(reader.read64(), 10),
 );
 
 export { bcs };

@@ -147,6 +147,22 @@ test('verify getAccountFromMnemonic', async () => {
     'enhance nephew render claim tube grace dream cheese coyote sad relief broom',
   );
   expect(account.getPublicKey().toSuiAddress()).toBe(
-    'b7657ece8328ed50a93a72aa091e9686cbd272ef584cba2f259452999f7c5ab1',
+    '0xb7657ece8328ed50a93a72aa091e9686cbd272ef584cba2f259452999f7c5ab1',
+  );
+});
+
+test('verify toPrivateKeyObject', async () => {
+  const account = WalletClient.getAccountFromMnemonic(
+    'enhance nephew render claim tube grace dream cheese coyote sad relief broom',
+  );
+  const { address, publicKeyHex, privateKeyHex } = account.toPrivateKeyObject();
+  expect(address).toBe(
+    '0xb7657ece8328ed50a93a72aa091e9686cbd272ef584cba2f259452999f7c5ab1',
+  );
+  expect(publicKeyHex).toBe(
+    '0x5419d348ed7ddfcf57dae1403b0d98b8a28d5e572e3e518d41d8a9d107aa0dde',
+  );
+  expect(privateKeyHex).toBe(
+    '0xe8ab49ef10bedee4183d3c7c0149be2003c5867b2b41f1cbdd3875148d899819',
   );
 });

@@ -1,11 +1,10 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import type { Infer } from 'superstruct';
 import {
   object,
-  number,
   string,
-  Infer,
   array,
   record,
   any,
@@ -13,11 +12,11 @@ import {
   boolean,
   nullable,
 } from 'superstruct';
+import type { SuiJsonValue } from './common';
 import {
   ObjectId,
   SuiAddress,
   TransactionDigest,
-  SuiJsonValue,
   SequenceNumber,
 } from './common';
 
@@ -71,9 +70,9 @@ export type SuiEventFilter =
   | {
       TimeRange: {
         // left endpoint of time interval, milliseconds since epoch, inclusive
-        start_time: number;
+        startTime: string;
         // right endpoint of time interval, milliseconds since epoch, exclusive
-        end_time: number;
+        endTime: string;
       };
     }
   | { Sender: SuiAddress }
@@ -88,17 +87,6 @@ export const PaginatedEvents = object({
   hasNextPage: boolean(),
 });
 export type PaginatedEvents = Infer<typeof PaginatedEvents>;
-
-export const SubscriptionId = number();
-
-export type SubscriptionId = Infer<typeof SubscriptionId>;
-
-export const SubscriptionEvent = object({
-  subscription: SubscriptionId,
-  result: SuiEvent,
-});
-
-export type SubscriptionEvent = Infer<typeof SubscriptionEvent>;
 
 /* ------------------------------- EventData ------------------------------ */
 

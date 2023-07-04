@@ -98,6 +98,9 @@ export const derivePath = (
 
   return segments.reduce(
     (parentKeys, segment) => CKDPriv(parentKeys, segment + offset),
-    { key, chainCode },
+    {
+      key,
+      chainCode,
+    },
   );
 };

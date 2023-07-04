@@ -1,7 +1,9 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import { normalizeSuiAddress, TypeTag } from '../../types';
+import { splitGenericParameters } from '@mysten/bcs';
+import type { TypeTag } from '../../types/index';
+import { normalizeSuiAddress } from '../../types/index';
 
 const VECTOR_REGEX = /^vector<(.+)>$/;
 const STRUCT_REGEX = /^([^:]+)::([^:]+)::([^<]+)(<(.+)>)?/;
@@ -64,29 +66,7 @@ export class TypeTagSerializer {
   }
 
   static parseStructTypeArgs(str: string, normalizeAddress = false): TypeTag[] {
-    // split `str` by all `,` outside angle brackets
-    const tok: Array<string> = [];
-    let word = '';
-    let nestedAngleBrackets = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str[i];
-      if (char === '<') {
-        nestedAngleBrackets++;
-      }
-      if (char === '>') {
-        nestedAngleBrackets--;
-      }
-      if (nestedAngleBrackets === 0 && char === ',') {
-        tok.push(word.trim());
-        word = '';
-        continue;
-      }
-      word += char;
-    }
-
-    tok.push(word.trim());
-
-    return tok.map((tok) =>
+    return splitGenericParameters(str).map((tok) =>
       TypeTagSerializer.parseFromStr(tok, normalizeAddress),
     );
   }
