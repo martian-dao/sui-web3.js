@@ -735,7 +735,7 @@ export class WalletClient {
         },
         objectId: data.objectId,
         type: 'kiosk-nft',
-        kioskInfo: obKioskContents.kioskInfo,
+        kioskInfo: data,
         nftType: data.type,
       });
     });
