@@ -21,6 +21,7 @@ import {
 import { normalizeSuiAddress, SuiObjectData } from './types';
 import { NftClient } from './nft-client';
 import { calculateAPY, calculateStakeShare } from './stakeHelperFunctions';
+import { fetchKiosk, getOwnedKiosks } from '@mysten/kiosk';
 
 const COIN_TYPE = 784;
 const MAX_ACCOUNTS = 20;
@@ -577,6 +578,32 @@ export class WalletClient {
     return { kioskContent, kioskInfo };
   }
 
+  async getSuiKioskContents(address: SuiAddress) {
+    // @ts-ignore adding this because type issue with JsonRpcProvider
+    const ownedKiosks = await getOwnedKiosks(this.provider, address);
+    const kioskContents = await Promise.all(
+      ownedKiosks.kioskIds.map(async (id) => {
+        // @ts-ignore adding this because type issue with JsonRpcProvider
+        return fetchKiosk(this.provider, id, { limit: 1000 }, {});
+      }),
+    );
+    const items = kioskContents.flatMap((k) => k.data.items);
+    const ids = items.map((item) => item.objectId);
+
+    // fetch the contents of the objects within a kiosk
+    const kioskContent = await this.provider.multiGetObjects({
+      ids,
+      // @ts-ignore
+      options: {
+        showContent: true,
+        showDisplay: true,
+        showType: true,
+      },
+    });
+
+    return kioskContent;
+  }
+
   /**
    * This function retrieves NFTs owned by a given address and their metadata, as well as kiosk NFTs
    * and their metadata if specified.
@@ -685,6 +712,32 @@ export class WalletClient {
           nftType: nft.type,
         });
       }
+    });
+
+    // fetch sui kiosk nfts
+    const suiKioskContents = await this.getSuiKioskContents(address);
+
+    suiKioskContents.forEach(({ data }) => {
+      if (!data) return;
+
+      // store nft data
+      const nftDisplayData: any = data.display?.data;
+
+      // if nft data is not available, skip
+      if (!nftDisplayData) return;
+
+      // push nft data to array
+      nftsWithMetadataArray.push({
+        ...data,
+        nftMeta: {
+          ...nftDisplayData,
+          imageUrl: nftDisplayData?.image_url,
+        },
+        objectId: data.objectId,
+        type: 'kiosk-nft',
+        kioskInfo: obKioskContents.kioskInfo,
+        nftType: data.type,
+      });
     });
 
     return {
