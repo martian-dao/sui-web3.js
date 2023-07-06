@@ -15,6 +15,7 @@ import {
   ObjectId,
   PaginatedCoins,
   SuiAddress,
+  SuiObjectResponse,
   SuiTransactionBlockResponse,
   SUI_TYPE_ARG,
 } from './types';
@@ -582,16 +583,29 @@ export class WalletClient {
     // @ts-ignore adding this because type issue with JsonRpcProvider
     const ownedKiosks = await getOwnedKiosks(this.provider, address);
     const kioskContents = await Promise.all(
-      ownedKiosks.kioskIds.map(async (id) => {
-        // @ts-ignore adding this because type issue with JsonRpcProvider
-        return fetchKiosk(this.provider, id, { limit: 1000 }, {});
+      ownedKiosks.kioskOwnerCaps.map(async ({ objectId, kioskId }) => {
+        const data = await fetchKiosk(
+          // @ts-ignore adding this because type issue with JsonRpcProvider
+          this.provider,
+          kioskId,
+          { limit: 1000 },
+          {},
+        );
+        return {
+          data,
+          kioskId,
+          kioskOwnerCapId: objectId,
+        };
       }),
     );
-    const items = kioskContents.flatMap((k) => k.data.items);
+
+    const items = kioskContents.flatMap((k) => k.data.data.items);
     const ids = items.map((item) => item.objectId);
 
     // fetch the contents of the objects within a kiosk
-    const kioskContent = await this.provider.multiGetObjects({
+    const kioskContent: (SuiObjectResponse & {
+      kioskInfo?: { kioskId: string; kioskOwnerCapId: string };
+    })[] = await this.provider.multiGetObjects({
       ids,
       // @ts-ignore
       options: {
@@ -599,6 +613,16 @@ export class WalletClient {
         showDisplay: true,
         showType: true,
       },
+    });
+
+    kioskContent.forEach((data) => {
+      kioskContents.forEach((k) => {
+        if (!k.data.data.itemIds.includes(data.data.objectId)) return;
+        data.kioskInfo = {
+          kioskId: k.kioskId,
+          kioskOwnerCapId: k.kioskOwnerCapId,
+        };
+      });
     });
 
     return kioskContent;
@@ -717,7 +741,7 @@ export class WalletClient {
     // fetch sui kiosk nfts
     const suiKioskContents = await this.getSuiKioskContents(address);
 
-    suiKioskContents.forEach(({ data }) => {
+    suiKioskContents.forEach(({ data, kioskInfo }) => {
       if (!data) return;
 
       // store nft data
@@ -735,7 +759,7 @@ export class WalletClient {
         },
         objectId: data.objectId,
         type: 'kiosk-nft',
-        kioskInfo: data,
+        kioskInfo,
         nftType: data.type,
       });
     });
