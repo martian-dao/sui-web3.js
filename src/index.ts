@@ -698,3 +698,5 @@ export {
    */
   fromExportedKeypair,
 };
+export * from "./wallet-client";
+export * from "./nft-client";
