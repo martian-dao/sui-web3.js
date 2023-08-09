@@ -1,14 +1,12 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
+import { normalizeSuiObjectId } from '../utils/sui-types';
 import { TransactionBlock } from '../builder/index';
 import type { JsonRpcProvider } from '../providers/json-rpc-provider';
-import type { ObjectId, SuiAddress } from '../types/index';
-import {
-  getObjectReference,
-  normalizeSuiObjectId,
-  SUI_SYSTEM_ADDRESS,
-} from '../types/index';
+import { getObjectReference } from '../types/index';
+import type { SuiClient } from '../client/index';
+import { SUI_SYSTEM_ADDRESS } from './framework';
 
 /**
  * Address of the Sui System object.
@@ -34,10 +32,10 @@ export class SuiSystemStateUtil {
    * @param gasBudget omittable only for DevInspect mode
    */
   public static async newRequestAddStakeTxn(
-    provider: JsonRpcProvider,
-    coins: ObjectId[],
+    client: JsonRpcProvider | SuiClient,
+    coins: string[],
     amount: bigint,
-    validatorAddress: SuiAddress,
+    validatorAddress: string,
   ): Promise<TransactionBlock> {
     // TODO: validate coin types and handle locked coins
     const tx = new TransactionBlock();
@@ -51,7 +49,7 @@ export class SuiSystemStateUtil {
         tx.pure(validatorAddress),
       ],
     });
-    const coinObjects = await provider.multiGetObjects({
+    const coinObjects = await client.multiGetObjects({
       ids: coins,
       // @ts-ignore
       options: {
@@ -71,8 +69,8 @@ export class SuiSystemStateUtil {
    * @param gasBudget omittable only for DevInspect mode
    */
   public static async newRequestWithdrawlStakeTxn(
-    stake: ObjectId,
-    stakedCoinId: ObjectId,
+    stake: string,
+    stakedCoinId: string,
   ): Promise<TransactionBlock> {
     const tx = new TransactionBlock();
     tx.moveCall({

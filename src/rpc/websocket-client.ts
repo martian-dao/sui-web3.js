@@ -1,7 +1,6 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-import type { SubscriptionId } from '../types/index';
 import {
   RequestManager,
   Client,
@@ -18,12 +17,13 @@ export const getWebsocketUrl = (httpUrl: string, port?: number): string => {
 };
 
 type NotificationMessageParams = {
-  subscription: SubscriptionId;
+  subscription: number;
   result: object;
 };
 
 type SubscriptionRequest<T = any> = {
   id?: number;
+  initialId?: number;
   method: string;
   unsubscribe: string;
   params: any[];
@@ -56,7 +56,7 @@ export const DEFAULT_CLIENT_OPTIONS: WebsocketClientOptions = {
 
 export class WebsocketClient {
   #client: Client | null;
-  #subscriptions: Map<SubscriptionId, SubscriptionRequest & { id: number }>;
+  #subscriptions: Map<number, SubscriptionRequest & { id: number }>;
   #disconnects: number;
 
   constructor(
@@ -123,21 +123,21 @@ export class WebsocketClient {
       { method: input.method, params: input.params },
       this.options.callTimeout,
     );
-
-    // If an input ID is provided, this is a reconnect and we need to use that ID instead:
-    this.#subscriptions.set(input.id || id, {
+    const initialId = input.initialId || id;
+    this.#subscriptions.set(initialId, {
       ...input,
       // Always set the latest actual subscription ID:
       id,
+      initialId,
     });
 
     return async () => {
       const client = this.#setupClient();
       // NOTE: Due to reconnects, the inner subscription ID could have actually changed:
-      const subscription = this.#subscriptions.get(id);
+      const subscription = this.#subscriptions.get(initialId);
       if (!subscription) return false;
 
-      this.#subscriptions.delete(id);
+      this.#subscriptions.delete(initialId);
 
       return client.request(
         { method: input.unsubscribe, params: [subscription.id] },

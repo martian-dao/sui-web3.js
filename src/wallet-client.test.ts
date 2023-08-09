@@ -2,7 +2,7 @@
 
 import { WalletClient } from './wallet-client';
 import * as Nacl from 'tweetnacl';
-import { SUI_TYPE_ARG } from './types';
+import { SUI_TYPE_ARG } from '.';
 import { TransactionBlock } from './builder';
 
 const NODE_URL = 'https://fullnode.devnet.sui.io/';
