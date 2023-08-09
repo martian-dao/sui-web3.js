@@ -2,35 +2,43 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { fromB64, toB64 } from '@mysten/bcs';
-import { TransactionBlock } from '../builder/index';
+import type { TransactionBlock } from '../builder/TransactionBlock';
+import { isTransactionBlock } from '../builder/TransactionBlock';
 import { TransactionBlockDataBuilder } from '../builder/TransactionBlockData';
 import type { SerializedSignature } from '../cryptography/signature';
 import type { JsonRpcProvider } from '../providers/json-rpc-provider';
 import type { HttpHeaders } from '../rpc/client';
 import type {
   ExecuteTransactionRequestType,
-  FaucetResponse,
-  SuiAddress,
   DevInspectResults,
   DryRunTransactionBlockResponse,
   SuiTransactionBlockResponse,
   SuiTransactionBlockResponseOptions,
-} from '../types/index';
+} from '../client/index';
 import { getTotalGasUsedUpperBound } from '../types/index';
-import { IntentScope, messageWithIntent } from '../utils/intent';
+import { IntentScope, messageWithIntent } from '../cryptography/intent';
 import type { Signer } from './signer';
 import type { SignedTransaction, SignedMessage } from './types';
+import type { SuiClient } from '../client/index';
+import { bcs } from '../bcs/index';
 
 ///////////////////////////////
 // Exported Abstracts
 export abstract class SignerWithProvider implements Signer {
-  readonly provider: JsonRpcProvider;
+  /**
+   * @deprecated Use `client` instead.
+   */
+  get provider(): JsonRpcProvider | SuiClient {
+    return this.client;
+  }
+
+  readonly client: SuiClient;
 
   ///////////////////
   // Sub-classes MUST implement these
 
   // Returns the checksum address
-  abstract getAddress(): Promise<SuiAddress>;
+  abstract getAddress(): Promise<string>;
 
   /**
    * Returns the signature for the data and the public key of the signer
@@ -39,7 +47,7 @@ export abstract class SignerWithProvider implements Signer {
 
   // Returns a new instance of the Signer, connected to provider.
   // This MAY throw if changing providers is not supported.
-  abstract connect(provider: JsonRpcProvider): SignerWithProvider;
+  abstract connect(client: SuiClient | JsonRpcProvider): SignerWithProvider;
 
   ///////////////////
   // Sub-classes MAY override these
@@ -48,18 +56,23 @@ export abstract class SignerWithProvider implements Signer {
    * Request gas tokens from a faucet server and send to the signer
    * address
    * @param httpHeaders optional request headers
+   * @deprecated Use `@mysten/sui.js/faucet` instead.
    */
-  async requestSuiFromFaucet(
-    httpHeaders?: HttpHeaders,
-  ): Promise<FaucetResponse> {
+  async requestSuiFromFaucet(httpHeaders?: HttpHeaders) {
+    if (!('requestSuiFromFaucet' in this.provider)) {
+      throw new Error(
+        'To request SUI from faucet, please use @mysten/sui.js/faucet instead',
+      );
+    }
+
     return this.provider.requestSuiFromFaucet(
       await this.getAddress(),
       httpHeaders,
     );
   }
 
-  constructor(provider: JsonRpcProvider) {
-    this.provider = provider;
+  constructor(client: JsonRpcProvider | SuiClient) {
+    this.client = client as SuiClient;
   }
 
   /**
@@ -67,7 +80,10 @@ export abstract class SignerWithProvider implements Signer {
    */
   async signMessage(input: { message: Uint8Array }): Promise<SignedMessage> {
     const signature = await this.signData(
-      messageWithIntent(IntentScope.PersonalMessage, input.message),
+      messageWithIntent(
+        IntentScope.PersonalMessage,
+        bcs.ser(['vector', 'u8'], input.message).toBytes(),
+      ),
     );
 
     return {
@@ -79,12 +95,12 @@ export abstract class SignerWithProvider implements Signer {
   protected async prepareTransactionBlock(
     transactionBlock: Uint8Array | TransactionBlock,
   ) {
-    if (TransactionBlock.is(transactionBlock)) {
+    if (isTransactionBlock(transactionBlock)) {
       // If the sender has not yet been set on the transaction, then set it.
       // NOTE: This allows for signing transactions with mis-matched senders, which is important for sponsored transactions.
       transactionBlock.setSenderIfNotSet(await this.getAddress());
       return await transactionBlock.build({
-        provider: this.provider,
+        client: this.client,
       });
     }
     if (transactionBlock instanceof Uint8Array) {
@@ -137,7 +153,7 @@ export abstract class SignerWithProvider implements Signer {
         transactionBlock: input.transactionBlock,
       });
 
-    return await this.provider.executeTransactionBlock({
+    return await this.client.executeTransactionBlock({
       transactionBlock: transactionBlockBytes,
       signature,
       options: input.options,
@@ -153,9 +169,9 @@ export abstract class SignerWithProvider implements Signer {
   async getTransactionBlockDigest(
     tx: Uint8Array | TransactionBlock,
   ): Promise<string> {
-    if (TransactionBlock.is(tx)) {
+    if (isTransactionBlock(tx)) {
       tx.setSenderIfNotSet(await this.getAddress());
-      return tx.getDigest({ provider: this.provider });
+      return tx.getDigest({ client: this.client });
     } else if (tx instanceof Uint8Array) {
       return TransactionBlockDataBuilder.getDigestFromBytes(tx);
     } else {
@@ -175,7 +191,7 @@ export abstract class SignerWithProvider implements Signer {
     >,
   ): Promise<DevInspectResults> {
     const address = await this.getAddress();
-    return this.provider.devInspectTransactionBlock({
+    return this.client.devInspectTransactionBlock({
       sender: address,
       ...input,
     });
@@ -188,10 +204,10 @@ export abstract class SignerWithProvider implements Signer {
     transactionBlock: TransactionBlock | string | Uint8Array;
   }): Promise<DryRunTransactionBlockResponse> {
     let dryRunTxBytes: Uint8Array;
-    if (TransactionBlock.is(input.transactionBlock)) {
+    if (isTransactionBlock(input.transactionBlock)) {
       input.transactionBlock.setSenderIfNotSet(await this.getAddress());
       dryRunTxBytes = await input.transactionBlock.build({
-        provider: this.provider,
+        client: this.client,
       });
     } else if (typeof input.transactionBlock === 'string') {
       dryRunTxBytes = fromB64(input.transactionBlock);
@@ -201,7 +217,7 @@ export abstract class SignerWithProvider implements Signer {
       throw new Error('Unknown transaction format');
     }
 
-    return this.provider.dryRunTransactionBlock({
+    return this.client.dryRunTransactionBlock({
       transactionBlock: dryRunTxBytes,
     });
   }
@@ -216,6 +232,7 @@ export abstract class SignerWithProvider implements Signer {
     ...args: Parameters<SignerWithProvider['dryRunTransactionBlock']>
   ) {
     const txEffects = await this.dryRunTransactionBlock(...args);
+	// @ts-ignore
     const gasEstimation = getTotalGasUsedUpperBound(txEffects.effects);
     if (typeof gasEstimation === 'undefined') {
       throw new Error('Failed to estimate the gas cost from transaction');

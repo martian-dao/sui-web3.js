@@ -5,13 +5,9 @@ import type { HttpHeaders } from '../rpc/client';
 import { JsonRpcClient } from '../rpc/client';
 import type {
   ExecuteTransactionRequestType,
-  ObjectId,
   SuiEventFilter,
-  TransactionDigest,
   SuiTransactionBlockResponseQuery,
-  FaucetResponse,
   Order,
-  CoinMetadata,
   CheckpointDigest,
   SuiObjectDataOptions,
   SuiTransactionBlockResponseOptions,
@@ -23,7 +19,6 @@ import type {
 } from '../types/index';
 import {
   PaginatedTransactionResponse,
-  SuiAddress,
   SuiMoveFunctionArgTypes,
   SuiMoveNormalizedFunction,
   SuiMoveNormalizedModule,
@@ -32,12 +27,6 @@ import {
   SuiTransactionBlockResponse,
   PaginatedEvents,
   DevInspectResults,
-  isValidTransactionDigest,
-  isValidSuiAddress,
-  isValidSuiObjectId,
-  normalizeSuiAddress,
-  normalizeSuiObjectId,
-  CoinMetadataStruct,
   PaginatedCoins,
   SuiObjectResponse,
   DelegatedStake,
@@ -61,16 +50,30 @@ import {
   DEFAULT_CLIENT_OPTIONS,
   WebsocketClient,
 } from '../rpc/websocket-client';
-import { requestSuiFromFaucet } from '../rpc/faucet-client';
 import { any, array, string, nullable } from 'superstruct';
 import { fromB58, toB64, toHEX } from '@mysten/bcs';
 import type { SerializedSignature } from '../cryptography/signature';
 import type { Connection } from '../rpc/connection';
 import { devnetConnection } from '../rpc/connection';
-import { TransactionBlock } from '../builder/index';
+import type { TransactionBlock } from '../builder/index';
+import { isTransactionBlock } from '../builder/index';
 import { CheckpointPage } from '../types/checkpoints';
-import { NetworkMetrics, AddressMetrics } from '../types/metrics';
+import {
+  NetworkMetrics,
+  AddressMetrics,
+  AllEpochsAddressMetrics,
+} from '../types/metrics';
 import { EpochInfo, EpochPage } from '../types/epochs';
+import { requestSuiFromFaucetV0 } from '../faucet/index';
+import {
+  isValidSuiAddress,
+  isValidSuiObjectId,
+  isValidTransactionDigest,
+  normalizeSuiAddress,
+  normalizeSuiObjectId,
+} from '../utils/sui-types';
+import type { CoinMetadata } from '../framework/framework';
+import { CoinMetadataStruct } from '../framework/framework';
 
 export interface PaginationArguments<Cursor> {
   /** Optional paging cursor */
@@ -161,14 +164,17 @@ export class JsonRpcProvider {
     return undefined;
   }
 
-  async requestSuiFromFaucet(
-    recipient: SuiAddress,
-    httpHeaders?: HttpHeaders,
-  ): Promise<FaucetResponse> {
+  /** @deprecated Use `@mysten/sui.js/faucet` instead. */
+  async requestSuiFromFaucet(recipient: string, headers?: HttpHeaders) {
     if (!this.connection.faucet) {
       throw new Error('Faucet URL is not specified');
     }
-    return requestSuiFromFaucet(this.connection.faucet, recipient, httpHeaders);
+
+    return requestSuiFromFaucetV0({
+      host: this.connection.faucet,
+      recipient,
+      headers,
+    });
   }
 
   /**
@@ -176,7 +182,7 @@ export class JsonRpcProvider {
    */
   async getCoins(
     input: {
-      owner: SuiAddress;
+      owner: string;
       coinType?: string | null;
     } & PaginationArguments<PaginatedCoins['nextCursor']>,
   ): Promise<PaginatedCoins> {
@@ -196,7 +202,7 @@ export class JsonRpcProvider {
    */
   async getAllCoins(
     input: {
-      owner: SuiAddress;
+      owner: string;
     } & PaginationArguments<PaginatedCoins['nextCursor']>,
   ): Promise<PaginatedCoins> {
     if (!input.owner || !isValidSuiAddress(normalizeSuiAddress(input.owner))) {
@@ -214,7 +220,7 @@ export class JsonRpcProvider {
    * Get the total coin balance for one coin type, owned by the address owner.
    */
   async getBalance(input: {
-    owner: SuiAddress;
+    owner: string;
     /** optional fully qualified type names for the coin (e.g., 0x168da5bf1f48dafc111b0a488fa454aca95e0b5e::usdc::USDC), default to 0x2::sui::SUI if not specified. */
     coinType?: string | null;
   }): Promise<CoinBalance> {
@@ -231,7 +237,7 @@ export class JsonRpcProvider {
   /**
    * Get the total coin balance for all coin types, owned by the address owner.
    */
-  async getAllBalances(input: { owner: SuiAddress }): Promise<CoinBalance[]> {
+  async getAllBalances(input: { owner: string }): Promise<CoinBalance[]> {
     if (!input.owner || !isValidSuiAddress(normalizeSuiAddress(input.owner))) {
       throw new Error('Invalid Sui address');
     }
@@ -353,7 +359,7 @@ export class JsonRpcProvider {
    */
   async getOwnedObjects(
     input: {
-      owner: SuiAddress;
+      owner: string;
     } & PaginationArguments<PaginatedObjectsResponse['nextCursor']> &
       SuiObjectResponseQuery,
   ): Promise<PaginatedObjectsResponse> {
@@ -380,7 +386,7 @@ export class JsonRpcProvider {
    * Get details about an object
    */
   async getObject(input: {
-    id: ObjectId;
+    id: string;
     options?: SuiObjectDataOptions;
   }): Promise<SuiObjectResponse> {
     if (!input.id || !isValidSuiObjectId(normalizeSuiObjectId(input.id))) {
@@ -394,7 +400,7 @@ export class JsonRpcProvider {
   }
 
   async tryGetPastObject(input: {
-    id: ObjectId;
+    id: string;
     version: number;
     options?: SuiObjectDataOptions;
   }): Promise<ObjectRead> {
@@ -409,7 +415,7 @@ export class JsonRpcProvider {
    * Batch get details about a list of objects. If any of the object ids are duplicates the call will fail
    */
   async multiGetObjects(input: {
-    ids: ObjectId[];
+    ids: string[];
     options?: SuiObjectDataOptions;
   }): Promise<SuiObjectResponse[]> {
     input.ids.forEach((id) => {
@@ -453,7 +459,7 @@ export class JsonRpcProvider {
   }
 
   async getTransactionBlock(input: {
-    digest: TransactionDigest;
+    digest: string;
     options?: SuiTransactionBlockResponseOptions;
   }): Promise<SuiTransactionBlockResponse> {
     if (!isValidTransactionDigest(input.digest)) {
@@ -467,7 +473,7 @@ export class JsonRpcProvider {
   }
 
   async multiGetTransactionBlocks(input: {
-    digests: TransactionDigest[];
+    digests: string[];
     options?: SuiTransactionBlockResponseOptions;
   }): Promise<SuiTransactionBlockResponse[]> {
     input.digests.forEach((d) => {
@@ -536,7 +542,7 @@ export class JsonRpcProvider {
   /**
    * Return the delegated stakes for an address
    */
-  async getStakes(input: { owner: SuiAddress }): Promise<DelegatedStake[]> {
+  async getStakes(input: { owner: string }): Promise<DelegatedStake[]> {
     if (!input.owner || !isValidSuiAddress(normalizeSuiAddress(input.owner))) {
       throw new Error('Invalid Sui address');
     }
@@ -551,7 +557,7 @@ export class JsonRpcProvider {
    * Return the delegated stakes queried by id.
    */
   async getStakesByIds(input: {
-    stakedSuiIds: ObjectId[];
+    stakedSuiIds: string[];
   }): Promise<DelegatedStake[]> {
     input.stakedSuiIds.forEach((id) => {
       if (!id || !isValidSuiObjectId(normalizeSuiObjectId(id))) {
@@ -636,14 +642,14 @@ export class JsonRpcProvider {
    */
   async devInspectTransactionBlock(input: {
     transactionBlock: TransactionBlock | string | Uint8Array;
-    sender: SuiAddress;
+    sender: string;
     /** Default to use the network reference gas price stored in the Sui System State object */
     gasPrice?: bigint | number | null;
     /** optional. Default to use the current epoch number stored in the Sui System State object */
     epoch?: string | null;
   }): Promise<DevInspectResults> {
     let devInspectTxBytes;
-    if (TransactionBlock.is(input.transactionBlock)) {
+    if (isTransactionBlock(input.transactionBlock)) {
       input.transactionBlock.setSenderIfNotSet(input.sender);
       devInspectTxBytes = toB64(
         await input.transactionBlock.build({
@@ -689,7 +695,7 @@ export class JsonRpcProvider {
   async getDynamicFields(
     input: {
       /** The id of the parent object */
-      parentId: ObjectId;
+      parentId: string;
     } & PaginationArguments<DynamicFieldPage['nextCursor']>,
   ): Promise<DynamicFieldPage> {
     if (
@@ -710,7 +716,7 @@ export class JsonRpcProvider {
    */
   async getDynamicFieldObject(input: {
     /** The ID of the quered parent object */
-    parentId: ObjectId;
+    parentId: string;
     /** The name of the dynamic field */
     name: string | DynamicFieldName;
   }): Promise<SuiObjectResponse> {
@@ -794,6 +800,14 @@ export class JsonRpcProvider {
     );
   }
 
+  async getAllEpochAddressMetrics(input?: { descendingOrder?: boolean }) {
+    return await this.client.requestWithType(
+      'suix_getAllEpochAddressMetrics',
+      [input?.descendingOrder],
+      AllEpochsAddressMetrics,
+    );
+  }
+
   /**
    * Return the committee information for the asked epoch
    */
@@ -851,11 +865,11 @@ export class JsonRpcProvider {
 
   async resolveNameServiceAddress(input: {
     name: string;
-  }): Promise<SuiAddress | null> {
+  }): Promise<string | null> {
     return await this.client.requestWithType(
       'suix_resolveNameServiceAddress',
       [input.name],
-      nullable(SuiAddress),
+      nullable(string()),
     );
   }
 
@@ -902,7 +916,7 @@ export class JsonRpcProvider {
   } & Parameters<
     JsonRpcProvider['getTransactionBlock']
   >[0]): Promise<SuiTransactionBlockResponse> {
-    // @ts-ignore
+	// @ts-ignore
     const timeoutSignal = AbortSignal.timeout(timeout);
     const timeoutPromise = new Promise((_, reject) => {
       timeoutSignal.addEventListener('abort', () =>

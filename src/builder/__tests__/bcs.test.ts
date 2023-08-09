@@ -3,12 +3,9 @@
 
 import { toB58 } from '@mysten/bcs';
 import { it, expect } from 'vitest';
-import type {
-  MoveCallTransaction,
-  TransferObjectsTransaction,
-} from '../index';
+import type { MoveCallTransaction, TransferObjectsTransaction } from '../index';
 import { builder, PROGRAMMABLE_CALL, TRANSACTION } from '../index';
-import { normalizeSuiAddress } from '../../types/index';
+import { normalizeSuiAddress } from '../../utils/sui-types';
 
 // Oooh-weeee we nailed it!
 it('can serialize simplified programmable call struct', () => {

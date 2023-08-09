@@ -7,10 +7,7 @@ import type { PublicKey } from '../../cryptography/publickey';
 import { sha256 } from '@noble/hashes/sha256';
 import { Secp256r1PublicKey } from './publickey';
 import { secp256r1 } from '@noble/curves/p256';
-import {
-  isValidBIP32Path,
-  mnemonicToSeed,
-} from '../../cryptography/mnemonics';
+import { isValidBIP32Path, mnemonicToSeed } from '../../cryptography/mnemonics';
 import { HDKey } from '@scure/bip32';
 import { toB64 } from '@mysten/bcs';
 import type { SignatureScheme } from '../../cryptography/signature';

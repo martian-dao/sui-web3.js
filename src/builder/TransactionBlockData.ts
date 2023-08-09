@@ -16,12 +16,13 @@ import {
   string,
   union,
 } from 'superstruct';
-import { hashTypedData } from '../cryptography/hash';
-import { normalizeSuiAddress, SuiObjectRef } from '../types/index';
+import { hashTypedData } from './hash';
+import { SuiObjectRef } from '../types/index';
 import { builder } from './bcs';
 import { TransactionType, TransactionBlockInput } from './Transactions';
 import { BuilderCallArg, PureCallArg } from './Inputs';
 import { create } from './utils';
+import { normalizeSuiAddress } from '../utils/sui-types';
 
 export const TransactionExpiration = optional(
   nullable(
@@ -32,8 +33,6 @@ export const TransactionExpiration = optional(
   ),
 );
 export type TransactionExpiration = Infer<typeof TransactionExpiration>;
-
-const SuiAddress = string();
 
 const StringEncodedBigint = define<string>('StringEncodedBigint', (val) => {
   if (!['string', 'number', 'bigint'].includes(typeof val)) return false;
@@ -50,13 +49,13 @@ const GasConfig = object({
   budget: optional(StringEncodedBigint),
   price: optional(StringEncodedBigint),
   payment: optional(array(SuiObjectRef)),
-  owner: optional(SuiAddress),
+  owner: optional(string()),
 });
 type GasConfig = Infer<typeof GasConfig>;
 
 export const SerializedTransactionDataBuilder = object({
   version: literal(1),
-  sender: optional(SuiAddress),
+  sender: optional(string()),
   expiration: TransactionExpiration,
   gasConfig: GasConfig,
   inputs: array(TransactionBlockInput),

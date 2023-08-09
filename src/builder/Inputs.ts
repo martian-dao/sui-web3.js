@@ -3,9 +3,10 @@
 
 import type { Infer } from 'superstruct';
 import { array, boolean, integer, object, string, union } from 'superstruct';
-import type { ObjectId, SharedObjectRef } from '../types/index';
-import { normalizeSuiAddress, SuiObjectRef } from '../types/index';
+import type { SharedObjectRef } from '../bcs/index';
+import { SuiObjectRef } from '../types/index';
 import { builder } from './bcs';
+import { normalizeSuiAddress } from '../utils/sui-types';
 
 const ObjectArg = union([
   object({ ImmOrOwned: SuiObjectRef }),
@@ -65,7 +66,7 @@ export const Inputs = {
   },
 };
 
-export function getIdFromCallArg(arg: ObjectId | ObjectCallArg) {
+export function getIdFromCallArg(arg: string | ObjectCallArg) {
   if (typeof arg === 'string') {
     return normalizeSuiAddress(arg);
   }

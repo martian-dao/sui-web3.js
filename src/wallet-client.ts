@@ -18,8 +18,8 @@ import {
   SuiObjectResponse,
   SuiTransactionBlockResponse,
   SUI_TYPE_ARG,
-} from './types';
-import { normalizeSuiAddress, SuiObjectData } from './types';
+} from '.';
+import { normalizeSuiAddress, SuiObjectData } from '.';
 import { NftClient } from './nft-client';
 import { calculateAPY, calculateStakeShare } from './stakeHelperFunctions';
 import { fetchKiosk, getOwnedKiosks } from '@mysten/kiosk';

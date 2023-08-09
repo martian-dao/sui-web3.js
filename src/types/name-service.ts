@@ -3,11 +3,10 @@
 
 import type { Infer } from 'superstruct';
 import { array, boolean, nullable, object, string } from 'superstruct';
-import { ObjectId } from './common';
 
 export const ResolvedNameServiceNames = object({
-  data: array(string()),
-  hasNextPage: boolean(),
-  nextCursor: nullable(ObjectId),
+	data: array(string()),
+	hasNextPage: boolean(),
+	nextCursor: nullable(string()),
 });
 export type ResolvedNameServiceNames = Infer<typeof ResolvedNameServiceNames>;

@@ -2,23 +2,20 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { fromB64, toB64 } from '@mysten/bcs';
-import type {
-  SerializedSignature,
-  SignaturePubkeyPair,
-  SignatureScheme,
-} from './signature';
+import type { SerializedSignature, SignatureScheme } from './signature';
 import { SIGNATURE_SCHEME_TO_FLAG } from './signature';
+import type { SignaturePubkeyPair } from './utils';
 // eslint-disable-next-line import/no-cycle
 import { toSingleSignaturePubkeyPair } from './utils';
 import type { PublicKey } from './publickey';
 import { blake2b } from '@noble/hashes/blake2b';
 import { bytesToHex } from '@noble/hashes/utils';
 
-import { normalizeSuiAddress } from '../types/index';
 import { Ed25519PublicKey } from '../keypairs/ed25519/publickey';
 import { Secp256k1PublicKey } from '../keypairs/secp256k1/publickey';
 import { Secp256r1PublicKey } from '../keypairs/secp256r1/publickey';
 import { builder } from '../builder/bcs';
+import { normalizeSuiAddress } from '../utils/sui-types';
 
 export type PubkeyWeightPair = {
   pubKey: PublicKey;
@@ -75,9 +72,9 @@ export function toMultiSigAddress(
   let i = 3;
   for (const pk of pks) {
     tmp.set([pk.pubKey.flag()], i);
-    tmp.set(pk.pubKey.toBytes(), i + 1);
-    tmp.set([pk.weight], i + 1 + pk.pubKey.toBytes().length);
-    i += pk.pubKey.toBytes().length + 2;
+    tmp.set(pk.pubKey.toRawBytes(), i + 1);
+    tmp.set([pk.weight], i + 1 + pk.pubKey.toRawBytes().length);
+    i += pk.pubKey.toRawBytes().length + 2;
   }
   return normalizeSuiAddress(
     bytesToHex(blake2b(tmp.slice(0, i), { dkLen: 32 })),
@@ -162,6 +159,7 @@ export function decodeMultiSig(signature: string): SignaturePubkeyPair[] {
       signatureScheme: scheme,
       signature: Uint8Array.from(Object.values(s)[0]),
       pubKey: new PublicKey(pk_bytes),
+      weight: multisig.multisig_pk.pk_map[pk_index as number].weight,
     };
   }
   return res;

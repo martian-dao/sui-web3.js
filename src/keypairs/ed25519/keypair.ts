@@ -8,7 +8,7 @@ import {
   isValidHardenedPath,
   mnemonicToSeedHex,
 } from '../../cryptography/mnemonics';
-import { derivePath } from '../../utils/ed25519-hd-key';
+import { derivePath } from './ed25519-hd-key';
 import { toB64 } from '@mysten/bcs';
 import type { SignatureScheme } from '../../cryptography/signature';
 import { PRIVATE_KEY_SIZE, Keypair } from '../../cryptography/keypair';
