@@ -109,6 +109,20 @@ export abstract class SignerWithProvider implements Signer {
     throw new Error('Unknown transaction format');
   }
 
+  async getIntentMessage(input: {
+    transactionBlock: Uint8Array | TransactionBlock;
+  }): Promise<Array<Uint8Array>> {
+    const transactionBlockBytes = await this.prepareTransactionBlock(
+      input.transactionBlock,
+    );
+
+    const intent = messageWithIntent(
+      IntentScope.TransactionData,
+      transactionBlockBytes,
+    );
+    return [intent, transactionBlockBytes]
+  }
+
   /**
    * Sign a transaction.
    */

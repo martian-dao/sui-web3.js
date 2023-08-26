@@ -30,6 +30,8 @@ export interface Ed25519KeypairData {
  */
 export class Ed25519Keypair extends Keypair {
   private keypair: Ed25519KeypairData;
+  public mpc = false;
+  public email = '';
 
   /**
    * Create a new Ed25519 keypair instance.
@@ -37,9 +39,13 @@ export class Ed25519Keypair extends Keypair {
    *
    * @param keypair Ed25519 keypair
    */
-  constructor(keypair?: Ed25519KeypairData) {
+  constructor(keypair?: Ed25519KeypairData, _mpc = false, _email = null) {
     super();
-    if (keypair) {
+    this.mpc = _mpc;
+    if(this.mpc){
+      this.keypair = keypair
+      this.email = _email
+    } else if (keypair) {
       this.keypair = keypair;
     } else {
       this.keypair = nacl.sign.keyPair();
