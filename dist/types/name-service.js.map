@@ -1,0 +1,1 @@
+{"version":3,"file":"name-service.js","sourceRoot":"","sources":["../../src/types/name-service.ts"],"names":[],"mappings":";AAAA,kCAAkC;AAClC,sCAAsC;;;AAGtC,6CAAuE;AAE1D,QAAA,wBAAwB,GAAG,IAAA,oBAAM,EAAC;IAC9C,IAAI,EAAE,IAAA,mBAAK,EAAC,IAAA,oBAAM,GAAE,CAAC;IACrB,WAAW,EAAE,IAAA,qBAAO,GAAE;IACtB,UAAU,EAAE,IAAA,sBAAQ,EAAC,IAAA,oBAAM,GAAE,CAAC;CAC9B,CAAC,CAAC"}

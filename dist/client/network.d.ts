@@ -1,0 +1,2 @@
+export declare function getFullnodeUrl(network: 'mainnet' | 'testnet' | 'devnet' | 'localnet'): "http://127.0.0.1:9000" | "https://fullnode.mainnet.sui.io:443" | "https://fullnode.testnet.sui.io:443" | "https://fullnode.devnet.sui.io:443";
+//# sourceMappingURL=network.d.ts.map

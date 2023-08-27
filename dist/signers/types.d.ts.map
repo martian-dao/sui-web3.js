@@ -1,0 +1,1 @@
+{"version":3,"file":"types.d.ts","sourceRoot":"","sources":["../../src/signers/types.ts"],"names":[],"mappings":"AAGA,OAAO,KAAK,EAAE,mBAAmB,EAAE,MAAM,2BAA2B,CAAC;AAErE,MAAM,MAAM,iBAAiB,GAAG;IAC9B,qBAAqB,EAAE,MAAM,CAAC;IAC9B,SAAS,EAAE,mBAAmB,CAAC;CAChC,CAAC;AAEF,MAAM,MAAM,aAAa,GAAG;IAC1B,YAAY,EAAE,MAAM,CAAC;IACrB,SAAS,EAAE,mBAAmB,CAAC;CAChC,CAAC"}
