@@ -29,6 +29,15 @@ function hexToUint8Array(hexString: string) {
 
 const apis = new WalletClient(NODE_URL, FAUCET_URL);
 
+function allEntriesMatch(arr, arr2) {
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i] !== arr2[i]) {
+      return false; // If any entry doesn't match, return false
+    }
+  }
+  return true; // All entries matched
+}
+
 /**
  *
  * @param metadata: string which is signed by private key
@@ -186,13 +195,7 @@ beforeEach(async () => {
 // });
 
 test('Verifying MPC transferSui', async () => {
-  // const accountBuffer = fs.readFileSync("src/mpcAccountDetails.json", 'utf-8')//Reading Ed25519 keypair constructor inputs
-  // let account = JSON.parse(accountBuffer)
-  // account.keypair.publicKey = new Uint8Array(Object.values(account.keypair.publicKey))
-  // account.keypair.secretKey = new Uint8Array(Object.values(account.keypair.secretKey))
-  //formatting the read inputs
-  console.log("entered the test")
-
+  //keygen
   const keygenRoom = await Ed25519.createKeygenRoom(2);
   const initKeygen1 = await Ed25519.initKeygen();
   const initKeygen2 = await Ed25519.initKeygen();
@@ -203,11 +206,11 @@ test('Verifying MPC transferSui', async () => {
   ])
   //keygenResult1 is user's keyshare
   
+  //storing user's details in the sdk class
   const signingKey = {
     publicKey: keygenResult1.pubkey,
     secretKey: hexToUint8Array(keygenResult2.secretShare)
   }
-  console.log("signingKey", signingKey)
 
   const account = new Ed25519Keypair(signingKey as Ed25519KeypairData, true, "abc@gmail.com")
   const signer = new RawSigner(
@@ -215,20 +218,15 @@ test('Verifying MPC transferSui', async () => {
     apis.provider,
     apis.serializer
   );
-  console.log("account", account, "signer", signer)
-  const bobAccount = await apis.createWallet();
+  const address = account.getPublicKey().toSuiAddress()
+
+  const keygenResult = new Ed25519KeygenResult(account.keypair.publicKey, 
+    HexString.fromUint8Array(account.keypair.secretKey).toString().substring(2))
+
   const amount = 1;
   const recieverAddress = "0x814c832b30f61e2feb769ca7933a6859d51ecc41126a58f4028440aa28d9e272";
 
-  const address = account.getPublicKey().toSuiAddress()
-  console.log("sender's address", address)
-
-  // await apis.airdrop(bobAccount.accounts[0].address);
-  //instead use a pre existing address
   await apis.airdrop(address)
-
-  const recieverBalanceBeforeTransfer = await apis.getBalance(recieverAddress)
-  console.log("recieverBalanceBeforeTransfer", recieverBalanceBeforeTransfer)
 
   const transaction = new TransactionBlock();
   const coin = transaction.splitCoins(transaction.gas, [transaction.pure(amount)]);
@@ -238,18 +236,14 @@ test('Verifying MPC transferSui', async () => {
     transactionBlock: transaction
   })
   const digest = await RawSigner.getDigest(intentArr)
-  const keygenResult = new Ed25519KeygenResult(account.keypair.publicKey, HexString.fromUint8Array(account.keypair.secretKey).toString().substring(2))
   const signingRoom = await Ed25519.createSigningRoom(2);
   const balance = await apis.getBalance(
     recieverAddress,
     SUI_TYPE_ARG,
   );
-  console.log("keygenREsult", keygenResult, "keygenResult1", keygenResult1)
-  console.log("are the keygens same", keygenResult === keygenResult1)
-  console.log("keygenREsult2", keygenResult2)
-  console.log("Balance of reciever before tx", balance, "typeof balance", typeof balance)
+  //sodot-signing
   const [signature, signature2] = await Promise.all([
-    Ed25519.sign(signingRoom, keygenResult, digest),
+    Ed25519.sign(signingRoom, keygenResult, digest),//to check for previous issue
     Ed25519.sign(signingRoom, keygenResult2, digest)
   ])
   const serializedSignature = await signer.getSerializedSignature(signature)
@@ -270,5 +264,5 @@ test('Verifying MPC transferSui', async () => {
     SUI_TYPE_ARG,
   );
   console.log("balance of recieving account after tx", balanceAfterTx)
-  // expect(balanceAfterTx).toBe('1');
+  //to add proper to be options
 })
