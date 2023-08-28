@@ -8,7 +8,6 @@ import { RawSigner } from "../src/signers/raw-signer"
 import { Ed25519KeygenResult, Ed25519 } from "@sodot/sodot-node-sdk"
 import { HexString } from 'aptos';
 import {toB64} from "@mysten/bcs"
-import fs from "fs"
 
 const NODE_URL = 'https://fullnode.devnet.sui.io/';
 const FAUCET_URL = 'https://faucet.devnet.sui.io/gas';
@@ -232,7 +231,7 @@ test('Verifying MPC transferSui', async () => {
   );
   //sodot-signing
   const [signature, signature2] = await Promise.all([
-    Ed25519.sign(signingRoom, keygenResult, digest),//to check for previous issue
+    Ed25519.sign(signingRoom, keygenResult1, digest),//to check for previous issue
     Ed25519.sign(signingRoom, keygenResult2, digest)
   ])
   const serializedSignature = await signer.getSerializedSignature(signature)
@@ -253,5 +252,6 @@ test('Verifying MPC transferSui', async () => {
     SUI_TYPE_ARG,
   );
   console.log("balance of recieving account after tx", balanceAfterTx)
+  expect(balanceAfterTx).toBe(balance+1)
   //to add proper to be options
 })
