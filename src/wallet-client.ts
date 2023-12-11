@@ -23,6 +23,7 @@ import { normalizeSuiAddress, SuiObjectData } from '.';
 import { NftClient } from './nft-client';
 import { calculateAPY, calculateStakeShare } from './stakeHelperFunctions';
 import { fetchKiosk, getOwnedKiosks } from '@mysten/kiosk';
+import { createChunks } from './utils/chunk-array';
 
 const COIN_TYPE = 784;
 const MAX_ACCOUNTS = 20;
@@ -537,23 +538,36 @@ export class WalletClient {
 
     if (!obKioskIds.length) return [];
 
-    // fetch the user's kiosks
-    const ownedKiosks = await this.provider.multiGetObjects({
-      ids: obKioskIds,
-      options: {
-        showType: true,
-        showDisplay: true,
-        showContent: true,
-        showBcs: true,
-        showOwner: true,
-        showPreviousTransaction: true,
-        showStorageRebate: true,
-      },
-    });
+    const obKioskIdsChunks = createChunks(obKioskIds, 50);
+
+    let ownedKiosks = [];
+
+    await Promise.all(
+      obKioskIdsChunks.map(async (ids) => {
+        try {
+          const res = await this.provider.multiGetObjects({
+            ids,
+            options: {
+              showType: true,
+              showDisplay: true,
+              showContent: true,
+              showBcs: true,
+              showOwner: true,
+              showPreviousTransaction: true,
+              showStorageRebate: true,
+            },
+          });
+
+          ownedKiosks.push(res);
+        } catch (err) {
+          console.error('unable to fetch kiosk ids');
+        }
+      }),
+    );
 
     // find object IDs within a kiosk
     const kioskObjectIds = await Promise.all(
-      ownedKiosks.map(async (kiosk) => {
+      ownedKiosks.flat().map(async (kiosk) => {
         if (!kiosk.data?.objectId) return [];
         const objects = await this.provider.getDynamicFields({
           parentId: kiosk.data.objectId,
@@ -562,21 +576,34 @@ export class WalletClient {
       }),
     );
 
-    // fetch the contents of the objects within a kiosk
-    const kioskContent = await this.provider.multiGetObjects({
-      ids: kioskObjectIds.flat(),
-      options: {
-        showType: true,
-        showDisplay: true,
-        showContent: true,
-        showBcs: true,
-        showOwner: true,
-        showPreviousTransaction: true,
-        showStorageRebate: true,
-      },
-    });
+    const kioskObjectIdsChunks = createChunks(kioskObjectIds.flat(), 50);
 
-    return { kioskContent, kioskInfo };
+    let kioskContent = [];
+
+    await Promise.all(
+      kioskObjectIdsChunks.map(async (ids) => {
+        try {
+          const res = await this.provider.multiGetObjects({
+            ids,
+            options: {
+              showType: true,
+              showDisplay: true,
+              showContent: true,
+              showBcs: true,
+              showOwner: true,
+              showPreviousTransaction: true,
+              showStorageRebate: true,
+            },
+          });
+
+          kioskContent.push(res);
+        } catch (err) {
+          console.error('unable to fetch kiosk object');
+        }
+      }),
+    );
+
+    return { kioskContent: kioskContent.flat(), kioskInfo };
   }
 
   async getSuiKioskContents(address: SuiAddress) {
