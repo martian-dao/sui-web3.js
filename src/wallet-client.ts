@@ -2,7 +2,7 @@ import * as bip39 from '@scure/bip39';
 import * as english from '@scure/bip39/wordlists/english';
 import { TransactionBlock } from './builder';
 // import { Ed25519Keypair } from './cryptography/ed25519-keypair';
-import { Ed25519Keypair } from '.';
+import { Ed25519Keypair, SuiChangeEpoch } from '.';
 // import { NftClient } from './nft_client';
 import { JsonRpcProvider } from '.';
 import { Connection } from './rpc/connection';
@@ -199,6 +199,18 @@ export class WalletClient {
     return await signer.signAndExecuteTransactionBlock({
       transactionBlock: tx,
     });
+  }
+
+  async transferSuiInBwn (
+    amount: number,
+    suiAccount: Ed25519Keypair,
+    receiverAddress: SuiAddress
+  ) {
+    const keypair = suiAccount;
+    const tx = new TransactionBlock();
+    const coin = tx.splitCoins(tx.gas, [tx.pure(amount)]);
+    tx.transferObjects([coin], tx.pure(receiverAddress));
+    return tx
   }
 
   async getBalance(address: string, typeArg: string = SUI_TYPE_ARG) {
